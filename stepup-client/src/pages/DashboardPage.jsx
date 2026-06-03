@@ -20,7 +20,8 @@ import {
   Briefcase,
   Layers,
   Check,
-  ChevronLeft
+  ChevronLeft,
+  Zap
 } from 'lucide-react'
 import { roadmapApi, levelApi } from '../api/client'
 import useAuthStore from '../store/authStore'
