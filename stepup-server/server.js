@@ -9,6 +9,8 @@ require('dotenv').config();
 
 // ─── Route Imports ────────────────────────────────────────────────────────────
 const authRoutes = require('./routes/auth');
+const roadmapRoutes = require('./routes/roadmaps');
+const levelRoutes = require('./routes/levels');
 
 // ─── App Init ─────────────────────────────────────────────────────────────────
 const app = express();
@@ -89,6 +91,8 @@ app.get('/api/health', (req, res) => {
 
 // ─── API Routes ────────────────────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/roadmaps', roadmapRoutes);
+app.use('/api/levels', levelRoutes);
 
 // ─── 404 Handler ──────────────────────────────────────────────────────────────
 app.use((req, res) => {
