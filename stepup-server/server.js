@@ -13,6 +13,7 @@ const roadmapRoutes = require('./routes/roadmaps');
 const levelRoutes   = require('./routes/levels');
 const socialRoutes  = require('./routes/social');
 const userRoutes    = require('./routes/users');
+const aiRoutes      = require('./routes/ai');
 
 // ─── App Init ─────────────────────────────────────────────────────────────────
 const app = express();
@@ -97,6 +98,7 @@ app.use('/api/roadmaps', roadmapRoutes);
 app.use('/api/levels',   levelRoutes);
 app.use('/api/social',   socialRoutes);
 app.use('/api/users',    userRoutes);
+app.use('/api/ai',       aiRoutes);
 
 // ─── 404 Handler ──────────────────────────────────────────────────────────────
 app.use((req, res) => {

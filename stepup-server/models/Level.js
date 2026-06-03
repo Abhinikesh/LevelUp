@@ -66,6 +66,8 @@ const levelSchema = new mongoose.Schema(
         explanation: { type: String, default: '' },
       },
     ],
+    topics: [{ type: String }],
+    quizCache: mongoose.Schema.Types.Mixed,
     // Optional: hints to help user complete level
     hints: [
       {

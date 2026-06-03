@@ -14,6 +14,8 @@ const MapView        = lazy(() => import('./pages/MapView'))
 const CreateRoadmap  = lazy(() => import('./pages/CreateRoadmap'))
 const Social         = lazy(() => import('./pages/Social'))
 const Profile        = lazy(() => import('./pages/Profile'))
+const Analytics      = lazy(() => import('./pages/Analytics'))
+const Settings       = lazy(() => import('./pages/Settings'))
 const NotFound       = lazy(() => import('./pages/NotFound'))
 
 /* ── Page loading fallback ── */
@@ -120,19 +122,19 @@ export default function App() {
                 <PageTransition><CreateRoadmap /></PageTransition>
               } />
               <Route path="/social" element={
-                <PageTransition><Social /></PageTransition>
+                <PageTransition><Social defaultTab={0} /></PageTransition>
               } />
               <Route path="/profile" element={
                 <PageTransition><Profile /></PageTransition>
               } />
               <Route path="/leaderboard" element={
-                <ComingSoon title="Leaderboard" icon="🏆" />
+                <PageTransition><Social defaultTab={1} /></PageTransition>
               } />
               <Route path="/analytics" element={
-                <ComingSoon title="Analytics" icon="📊" />
+                <PageTransition><Analytics /></PageTransition>
               } />
               <Route path="/settings" element={
-                <ComingSoon title="Settings" icon="⚙️" />
+                <PageTransition><Settings /></PageTransition>
               } />
             </Route>
 

@@ -71,9 +71,9 @@ function PodiumCard({ user, rank }) {
   )
 }
 
-export default function Social() {
+export default function Social({ defaultTab = 0 }) {
   const { user } = useAuthStore()
-  const [mainTab,      setMainTab]      = useState(0) // 0=Friends, 1=Leaderboard
+  const [mainTab,      setMainTab]      = useState(defaultTab) // 0=Friends, 1=Leaderboard
   const [lbTab,        setLbTab]        = useState('global')
   const [friends,      setFriends]      = useState([])
   const [pending,      setPending]      = useState([])

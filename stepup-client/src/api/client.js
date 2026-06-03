@@ -9,6 +9,13 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+// Longer timeout instance for AI calls (GPT-4o can be slow)
+const aiAxios = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 90000,
+  headers: { 'Content-Type': 'application/json' },
+})
+
 // ── Request interceptor: attach JWT ────────────────────────────────────────────
 api.interceptors.request.use(
   (config) => {
@@ -81,4 +88,59 @@ export const userApi = {
   getTrophies:   ()       => api.get('/users/trophies'),
 }
 
+// ── AI axios interceptors (same auth token) ───────────────────────────────────
+aiAxios.interceptors.request.use(
+  (config) => {
+    const token = useAuthStore.getState().token
+    if (token) config.headers.Authorization = `Bearer ${token}`
+    return config
+  },
+  (error) => Promise.reject(error)
+)
+
+aiAxios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      useAuthStore.getState().logout()
+      if (window.location.pathname !== '/login') window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
+
+// ── AI endpoints ───────────────────────────────────────────────────────────────
+export const aiApi = {
+  // Generate roadmap from text description
+  generateRoadmap: (data) =>
+    aiAxios.post('/ai/generate-roadmap', data),
+
+  // Generate roadmap from image (OCR) — FormData upload
+  generateFromImage: (formData) =>
+    aiAxios.post('/ai/generate-from-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+
+  // Generate / refresh quiz questions for a level
+  generateQuiz: (levelId) =>
+    aiAxios.post(`/ai/generate-quiz/${levelId}`),
+
+  // Submit photo proof for AI verification — FormData upload
+  verifyPhoto: (formData) =>
+    aiAxios.post('/ai/verify-photo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+
+  // Submit voice transcript for evaluation
+  verifyVoice: (data) =>
+    aiAxios.post('/ai/verify-voice', data),
+
+  // Upload audio recording for Whisper STT transcription
+  transcribeVoice: (formData) =>
+    aiAxios.post('/ai/transcribe-voice', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+}
+
 export default api
+
