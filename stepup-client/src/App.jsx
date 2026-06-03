@@ -2,9 +2,9 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import CustomCursor from './components/ui/CustomCursor'
 import AppLayout   from './components/layout/AppLayout'
-import AuthLayout  from './components/layout/AuthLayout'
-import LoginPage    from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
+import Landing     from './pages/Landing'
+import Login       from './pages/Login'
+import Signup      from './pages/Signup'
 import DashboardPage from './pages/DashboardPage'
 import useAuthStore from './store/authStore'
 
@@ -34,28 +34,26 @@ export default function App() {
       <CustomCursor />
 
       <Routes>
-        {/* Root redirect */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* Public root: Landing Page */}
+        <Route path="/" element={<Landing />} />
 
         {/* Auth routes (guest only) */}
-        <Route element={<AuthLayout />}>
-          <Route
-            path="/login"
-            element={
-              <GuestRoute>
-                <LoginPage />
-              </GuestRoute>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <GuestRoute>
-                <RegisterPage />
-              </GuestRoute>
-            }
-          />
-        </Route>
+        <Route
+          path="/login"
+          element={
+            <GuestRoute>
+              <Login />
+            </GuestRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <GuestRoute>
+              <Signup />
+            </GuestRoute>
+          }
+        />
 
         {/* App routes (protected) */}
         <Route
