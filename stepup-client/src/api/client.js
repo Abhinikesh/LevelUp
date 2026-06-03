@@ -62,4 +62,23 @@ export const levelApi = {
   complete:     (id, proofData)    => api.post(`/levels/${id}/complete`, proofData),
 }
 
+// ── Social endpoints ─────────────────────────────────────────────────────────────
+export const socialApi = {
+  search:        (q)       => api.get(`/social/search?q=${encodeURIComponent(q)}`),
+  getFriends:    ()        => api.get('/social/friends'),
+  addFriend:     (data)    => api.post('/social/friends/add', data),
+  acceptFriend:  (userId)  => api.put(`/social/friends/accept/${userId}`),
+  removeFriend:  (userId)  => api.delete(`/social/friends/${userId}`),
+  leaderboard:   (params)  => api.get('/social/leaderboard', { params }),
+}
+
+// ── User endpoints ────────────────────────────────────────────────────────────────
+export const userApi = {
+  getProfile:    ()       => api.get('/users/profile'),
+  updateProfile: (data)   => api.put('/users/profile', data),
+  getHistory:    (page)   => api.get(`/users/history?page=${page}&limit=20`),
+  getBadges:     ()       => api.get('/users/badges'),
+  getTrophies:   ()       => api.get('/users/trophies'),
+}
+
 export default api
