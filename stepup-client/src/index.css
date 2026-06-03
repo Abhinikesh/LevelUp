@@ -635,3 +635,25 @@ a:hover {
   outline-offset: 3px;
   border-radius: 4px;
 }
+
+/* ── Mobile Safe Area ────────────────────────────────────── */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 8px);
+}
+
+/* ── Color utility overrides (ensure Tailwind picks them up) */
+.text-brand  { color: var(--brand)  !important; }
+.text-coral  { color: var(--coral)  !important; }
+.text-green  { color: var(--green)  !important; }
+.text-gold   { color: var(--gold)   !important; }
+.text-muted  { color: var(--muted)  !important; }
+
+/* ── Responsive: stack sidebar on mobile ─────────────────── */
+@media (max-width: 767px) {
+  h1 { font-size: clamp(1.8rem, 6vw, 3rem); }
+  h2 { font-size: clamp(1.4rem, 4vw, 2.2rem); }
+  h3 { font-size: clamp(1.1rem, 3vw, 1.6rem); }
+  .glass-card { border-radius: 1rem; }
+  .btn { font-size: 0.85rem; padding: 0.65rem 1.25rem; }
+}
+

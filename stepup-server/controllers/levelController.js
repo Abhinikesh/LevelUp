@@ -2,6 +2,8 @@ const Level = require('../models/Level');
 const LevelCompletion = require('../models/LevelCompletion');
 const Roadmap = require('../models/Roadmap');
 const User = require('../models/User');
+const { checkAndAwardBadges } = require('./userController');
+
 
 /**
  * GET /api/levels
@@ -249,6 +251,9 @@ const completeLevel = async (req, res) => {
     user.lastActiveDate = now;
     await user.save();
 
+    // 5b. Check and award any newly unlocked badges
+    const newBadges = await checkAndAwardBadges(user);
+
     // 6. Unlock the NEXT level (if any exists)
     const nextLevelNumber = level.levelNumber + 1;
     const nextLevel = await Level.findOne({
@@ -279,12 +284,13 @@ const completeLevel = async (req, res) => {
         : 'Level Cleared! XP and credentials earned! 🚀',
       completion,
       user: {
-        xpTotal: user.xpTotal,
+        xpTotal:     user.xpTotal,
         streakCount: user.streakCount,
-        level: Math.floor(user.xpTotal / 500) + 1,
+        level:       Math.floor(user.xpTotal / 500) + 1,
       },
       nextLevelUnlocked: !!nextLevel,
       roadmapCompleted,
+      newBadges,
     });
   } catch (error) {
     console.error('[completeLevel] Error:', error.message);
