@@ -4,12 +4,14 @@ import confetti from 'canvas-confetti'
 import {
   CheckCircle, Lock, Play, Star, Zap, Clock, Trophy,
   ChevronDown, X, Flame, Sparkles, ArrowLeft, BookOpen,
-  Dumbbell, Briefcase, Compass, Check, RefreshCw
+  Dumbbell, Briefcase, Compass, Check, RefreshCw, Volume2, Brain, Camera
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import useRoadmaps from '../hooks/useRoadmaps'
 import useAuthStore from '../store/authStore'
-import { levelApi } from '../api/client'
+import { levelApi, aiApi } from '../api/client'
+import QuizVerification from '../components/ai/QuizVerification'
+import VoiceVerification from '../components/ai/VoiceVerification'
 
 /* ── helpers ── */
 function getLevelPosition(index, total) {
@@ -102,12 +104,17 @@ export default function MapView() {
   const [proofText,     setProofText]      = useState('')
   const [xpFly,         setXpFly]          = useState(null) // { amount }
   const [completedAnim, setCompletedAnim]  = useState(null) // levelId
+  const [showQuizModal, setShowQuizModal] = useState(false)
+  const [showVoiceModal, setShowVoiceModal] = useState(false)
+  const [proofFile, setProofFile] = useState(null)
   const mapRef = useRef(null)
+  const proofFileInputRef = useRef(null)
 
   // Sync local levels from store
   useEffect(() => {
     setLocalLevels(levels)
-  }, [levels])
+    setProofFile(null)
+  }, [levels, selectedLevel])
 
   // Load on mount
   useEffect(() => {
@@ -128,10 +135,118 @@ export default function MapView() {
     }
   }, [localLevels])
 
+  const handleQuizVerified = useCallback(async ({ score, answers }) => {
+    if (!selectedLevel) return
+    setSubmitting(true)
+    setScanText('Submitting quiz results...')
+    try {
+      const { data } = await levelApi.complete(selectedLevel._id, {
+        proofUrl: 'https://stepup-uploads.s3.amazonaws.com/quiz-proof.png',
+        proofData: { answers },
+      })
+      setXpFly({ amount: selectedLevel.xpReward })
+      confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 }, colors: ['#6C63FF', '#FF6584', '#43E97B', '#FFB800'] })
+      setLocalLevels(prev =>
+        prev.map(l => {
+          if (l._id === selectedLevel._id) return { ...l, isCompleted: true }
+          if (l.levelNumber === selectedLevel.levelNumber + 1) return { ...l, isLocked: false }
+          return l
+        })
+      )
+      setCompletedAnim(selectedLevel._id)
+      setTimeout(() => setCompletedAnim(null), 1200)
+      if (data.user) {
+        setUser({ ...user, xpTotal: data.user.xpTotal, streakCount: data.user.streakCount })
+      }
+      toast.success(data.message || 'Quiz cleared! Level complete! 🎉')
+      setSelectedLevel(null)
+      setShowQuizModal(false)
+    } catch (err) {
+      console.error(err)
+      toast.error(err.response?.data?.message || 'Verification failed. Try again.')
+    } finally {
+      setSubmitting(false)
+      setScanText('')
+    }
+  }, [selectedLevel, user, setUser])
+
+  const handleVoiceVerified = useCallback((data) => {
+    if (!selectedLevel) return
+    setXpFly({ amount: selectedLevel.xpReward })
+    confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 }, colors: ['#6C63FF', '#43E97B', '#FFB800'] })
+    setLocalLevels(prev =>
+      prev.map(l => {
+        if (l._id === selectedLevel._id) return { ...l, isCompleted: true }
+        if (l.levelNumber === selectedLevel.levelNumber + 1) return { ...l, isLocked: false }
+        return l
+      })
+    )
+    setCompletedAnim(selectedLevel._id)
+    setTimeout(() => setCompletedAnim(null), 1200)
+    if (data.user) {
+      setUser({ ...user, xpTotal: data.user.xpTotal, streakCount: data.user.streakCount })
+    }
+    toast.success('Voice challenge verified! Level complete! 🎉')
+    setSelectedLevel(null)
+    setShowVoiceModal(false)
+  }, [selectedLevel, user, setUser])
+
   /* ── Complete level ── */
   const handleSubmit = useCallback(async () => {
     if (!selectedLevel) return
 
+    // 1. Photo / Screenshot AI verification path
+    if (selectedLevel.proofType === 'photo' || selectedLevel.proofType === 'screenshot') {
+      if (!proofFile) {
+        toast.error('Please upload a photo proof first!')
+        return
+      }
+      setSubmitting(true)
+      setScanText('Uploading image proof...')
+      try {
+        const formData = new FormData()
+        formData.append('levelId', selectedLevel._id)
+        formData.append('image', proofFile)
+        
+        const res = await aiApi.verifyPhoto(formData)
+        const data = res.data
+        
+        if (data.verified) {
+          setXpFly({ amount: selectedLevel.xpReward })
+          confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 }, colors: ['#6C63FF', '#43E97B', '#FFB800'] })
+          
+          setLocalLevels(prev =>
+            prev.map(l => {
+              if (l._id === selectedLevel._id) return { ...l, isCompleted: true }
+              if (l.levelNumber === selectedLevel.levelNumber + 1) return { ...l, isLocked: false }
+              return l
+            })
+          )
+          
+          setCompletedAnim(selectedLevel._id)
+          setTimeout(() => setCompletedAnim(null), 1200)
+          
+          if (data.user) {
+            setUser({ ...user, xpTotal: data.user.xpTotal, streakCount: data.user.streakCount })
+          }
+          
+          toast.success(data.feedback || 'Photo proof approved! Level complete! 🎉')
+          setSelectedLevel(null)
+          setProofFile(null)
+        } else {
+          toast.error(data.feedback || 'AI was unable to verify your proof. Check the feedback and try again.')
+        }
+      } catch (err) {
+        console.error(err)
+        toast.error(err.response?.data?.message || 'Verification failed. Try again.')
+      } finally {
+        setSubmitting(false)
+        setScanText('')
+      }
+      return
+    }
+
+    // 2. Original code/text/timer submission path
     if (selectedLevel.proofType === 'quiz') {
       const answers = selectedLevel.quizQuestions?.map((_, i) => quizAnswers[i])
       if (answers?.some(a => a === undefined)) {
@@ -206,7 +321,7 @@ export default function MapView() {
       setSubmitting(false)
       setScanText('')
     }
-  }, [selectedLevel, quizAnswers, proofText, user, setUser])
+  }, [selectedLevel, quizAnswers, proofText, proofFile, user, setUser])
 
   /* ── Derived ── */
   const completedCount = localLevels.filter(l => l.isCompleted).length
@@ -691,42 +806,69 @@ export default function MapView() {
                       </h4>
 
                       {/* QUIZ */}
-                      {selectedLevel.proofType === 'quiz' && selectedLevel.quizQuestions && (
-                        <div className="space-y-4 max-h-60 overflow-y-auto no-scrollbar">
-                          {selectedLevel.quizQuestions.map((q, qi) => (
-                            <div
-                              key={qi}
-                              className="space-y-2 pb-3 border-b last:border-0 last:pb-0"
-                              style={{ borderColor: '#1E1E2E' }}
-                            >
-                              <p className="text-xs font-semibold text-white">{q.question}</p>
-                              <div className="flex flex-col gap-1.5">
-                                {q.options.map((opt, oi) => {
-                                  const selected = quizAnswers[qi] === oi
-                                  return (
-                                    <button
-                                      key={oi}
-                                      onClick={() => setQuizAnswers(prev => ({ ...prev, [qi]: oi }))}
-                                      className="w-full text-left px-3 py-2.5 rounded-xl border text-xs transition-all duration-200"
-                                      style={{
-                                        background: selected ? 'rgba(108,99,255,0.12)' : '#0D0D18',
-                                        borderColor: selected ? '#6C63FF' : '#1E1E2E',
-                                        color: selected ? '#fff' : '#8B8BAE',
-                                        fontWeight: selected ? 700 : 400,
-                                      }}
-                                    >
-                                      {opt}
-                                    </button>
-                                  )
-                                })}
-                              </div>
+                      {selectedLevel.proofType === 'quiz' && (
+                        <div className="space-y-3 text-center py-4">
+                          <Brain size={36} className="text-brand mx-auto animate-pulse" />
+                          <p className="text-xs text-muted">
+                            This level requires a knowledge verification quiz. You must score 60% or higher to unlock the next quest.
+                          </p>
+                          <button
+                            onClick={() => setShowQuizModal(true)}
+                            className="btn btn-primary w-full py-3 text-xs flex items-center justify-center gap-1.5"
+                          >
+                            <Play size={12} /> Start Quiz Verification
+                          </button>
+                        </div>
+                      )}
+
+                      {/* VOICE */}
+                      {selectedLevel.proofType === 'voice' && (
+                        <div className="space-y-3 text-center py-4">
+                          <Volume2 size={36} className="text-brand mx-auto animate-pulse" />
+                          <p className="text-xs text-muted">
+                            This level requires voice explanation. Explain the concepts out loud, and AI will evaluate your understanding.
+                          </p>
+                          <button
+                            onClick={() => setShowVoiceModal(true)}
+                            className="btn btn-primary w-full py-3 text-xs flex items-center justify-center gap-1.5"
+                          >
+                            <Play size={12} /> Start Voice Explanation
+                          </button>
+                        </div>
+                      )}
+
+                      {/* PHOTO / SCREENSHOT */}
+                      {(selectedLevel.proofType === 'photo' || selectedLevel.proofType === 'screenshot') && (
+                        <div className="space-y-3">
+                          <p className="text-[11px] text-muted">
+                            Upload a photo or screenshot of your completed work:
+                          </p>
+                          {proofFile ? (
+                            <div className="relative">
+                              <img src={URL.createObjectURL(proofFile)} alt="Preview" className="w-full rounded-2xl max-h-40 object-cover" />
+                              <button onClick={() => setProofFile(null)} className="absolute top-2 right-2 w-6 h-6 bg-bg/85 rounded-full text-coral text-xs">✕</button>
                             </div>
-                          ))}
+                          ) : (
+                            <button
+                              onClick={() => proofFileInputRef.current?.click()}
+                              className="w-full h-32 rounded-2xl border-2 border-dashed border-border hover:border-brand/40 bg-card flex flex-col items-center justify-center gap-2"
+                            >
+                              <Camera size={24} className="text-muted/50" />
+                              <span className="text-xs text-muted">Click to select photo proof</span>
+                            </button>
+                          )}
+                          <input
+                            ref={proofFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={e => setProofFile(e.target.files[0])}
+                          />
                         </div>
                       )}
 
                       {/* TEXT / TIMER / CODE */}
-                      {selectedLevel.proofType !== 'quiz' && (
+                      {selectedLevel.proofType !== 'quiz' && selectedLevel.proofType !== 'voice' && selectedLevel.proofType !== 'photo' && selectedLevel.proofType !== 'screenshot' && (
                         <div className="space-y-2">
                           <p className="text-[11px] text-muted">
                             {selectedLevel.proofType === 'code'
@@ -750,34 +892,53 @@ export default function MapView() {
                       )}
 
                       {/* Actions */}
-                      <div className="flex gap-3 pt-1">
-                        <button
-                          onClick={() => !submitting && setSelectedLevel(null)}
-                          disabled={submitting}
-                          className="btn btn-ghost flex-1 py-3 text-xs"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleSubmit}
-                          disabled={submitting}
-                          className="btn btn-primary flex-1 py-3 text-xs flex items-center justify-center gap-1.5"
-                        >
-                          {submitting ? (
-                            <RefreshCw size={13} className="animate-spin" />
-                          ) : (
-                            <>
-                              <Check size={13} /> Submit & Verify
-                            </>
-                          )}
-                        </button>
-                      </div>
+                      {selectedLevel.proofType !== 'quiz' && selectedLevel.proofType !== 'voice' && (
+                        <div className="flex gap-3 pt-1">
+                          <button
+                            onClick={() => !submitting && setSelectedLevel(null)}
+                            disabled={submitting}
+                            className="btn btn-ghost flex-1 py-3 text-xs"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleSubmit}
+                            disabled={submitting}
+                            className="btn btn-primary flex-1 py-3 text-xs flex items-center justify-center gap-1.5"
+                          >
+                            {submitting ? (
+                              <RefreshCw size={13} className="animate-spin" />
+                            ) : (
+                              <>
+                                <Check size={13} /> Submit & Verify
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showQuizModal && selectedLevel && (
+          <QuizVerification
+            level={selectedLevel}
+            onVerified={handleQuizVerified}
+            onClose={() => { setShowQuizModal(false); setSelectedLevel(null); }}
+          />
+        )}
+        {showVoiceModal && selectedLevel && (
+          <VoiceVerification
+            level={selectedLevel}
+            onVerified={handleVoiceVerified}
+            onClose={() => { setShowVoiceModal(false); setSelectedLevel(null); }}
+          />
         )}
       </AnimatePresence>
     </div>

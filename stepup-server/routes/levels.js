@@ -5,6 +5,7 @@ const {
   getLevelById,
   createLevel,
   completeLevel,
+  getGymChallenge,
 } = require('../controllers/levelController');
 const { protect } = require('../middleware/auth');
 
@@ -20,5 +21,8 @@ router.route('/:id')
 
 router.route('/:id/complete')
   .post(completeLevel);
+
+router.route('/:id/gym')
+  .get(getGymChallenge);
 
 module.exports = router;

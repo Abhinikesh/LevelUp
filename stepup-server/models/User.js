@@ -82,6 +82,16 @@ const userSchema = new mongoose.Schema(
       type: [friendSchema],
       default: [],
     },
+    fcmToken: {
+      type: String,
+      default: '',
+    },
+    notificationPrefs: {
+      dailyStreakReminder: { type: Boolean, default: true },
+      weeklyProgressReport: { type: Boolean, default: true },
+      newFriendRequests: { type: Boolean, default: true },
+      examUrgencyAlerts: { type: Boolean, default: true },
+    },
   },
   {
     timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },

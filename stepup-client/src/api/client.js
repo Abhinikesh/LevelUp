@@ -88,6 +88,26 @@ export const userApi = {
   getTrophies:   ()       => api.get('/users/trophies'),
 }
 
+// ── Coach endpoints ───────────────────────────────────────────────────────────────
+export const coachApi = {
+  chat: (messages, levelId) => api.post('/coach/chat', { messages, levelId }),
+}
+
+// ── Gym endpoints ─────────────────────────────────────────────────────────────────
+export const gymApi = {
+  getChallenge: (levelId, type) => api.get(`/levels/${levelId}/gym`, { params: { type } }),
+}
+
+// ── Notification endpoints ────────────────────────────────────────────────────────
+export const notificationApi = {
+  getHistory:    ()           => api.get('/notifications'),
+  markRead:      (id)         => api.post(`/notifications/${id}/read`),
+  markAllRead:   ()           => api.post('/notifications/read-all'),
+  registerToken: (token)      => api.post('/notifications/token', { token }),
+  getPrefs:      ()           => api.get('/notifications/prefs'),
+  updatePrefs:   (prefs)      => api.put('/notifications/prefs', prefs),
+}
+
 // ── AI axios interceptors (same auth token) ───────────────────────────────────
 aiAxios.interceptors.request.use(
   (config) => {

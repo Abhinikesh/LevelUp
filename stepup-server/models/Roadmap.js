@@ -73,6 +73,20 @@ const roadmapSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    // ── Exam Mode ─────────────────────────────────────────────────────────────
+    examMode: {
+      type: Boolean,
+      default: false,
+    },
+    examDate: {
+      type: Date,
+      default: null,
+    },
+    dailyLevelTarget: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   {
     timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },

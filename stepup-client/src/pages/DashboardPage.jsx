@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus,
@@ -21,11 +21,17 @@ import {
   Layers,
   Check,
   ChevronLeft,
-  Zap
+  Zap,
+  Volume2,
+  Brain,
+  Camera
 } from 'lucide-react'
-import { roadmapApi, levelApi } from '../api/client'
+import { roadmapApi, levelApi, aiApi } from '../api/client'
 import useAuthStore from '../store/authStore'
 import toast from 'react-hot-toast'
+import QuizVerification from '../components/ai/QuizVerification'
+import VoiceVerification from '../components/ai/VoiceVerification'
+import confetti from 'canvas-confetti'
 
 export default function DashboardPage() {
   const { user, setUser } = useAuthStore()
@@ -53,6 +59,15 @@ export default function DashboardPage() {
   const [proofText, setProofText] = useState('')
   const [submittingProof, setSubmittingProof] = useState(false)
   const [verifyingText, setVerifyingText] = useState('')
+
+  const [showQuizModal, setShowQuizModal] = useState(false)
+  const [showVoiceModal, setShowVoiceModal] = useState(false)
+  const [proofFile, setProofFile] = useState(null)
+  const proofFileInputRef = useRef(null)
+
+  useEffect(() => {
+    setProofFile(null)
+  }, [activeLevel])
 
   // ── Fetch User Roadmaps ──────────────────────────────────────────
   const fetchRoadmaps = async (autoSelectId = null) => {
@@ -229,12 +244,134 @@ export default function DashboardPage() {
     }
   }
 
+  const handleQuizVerified = async ({ score, answers }) => {
+    if (!activeLevel) return
+    setSubmittingProof(true)
+    setVerifyingText('Submitting quiz results...')
+    try {
+      const { data } = await levelApi.complete(activeLevel._id, {
+        proofUrl: 'https://stepup-uploads.s3.amazonaws.com/quiz-proof.png',
+        proofData: { answers }
+      })
+      toast.success(data.message)
+      setLevels(prev => prev.map(lvl => {
+        if (lvl._id === activeLevel._id) return { ...lvl, isCompleted: true, completedAt: new Date() }
+        if (lvl.levelNumber === activeLevel.levelNumber + 1) return { ...lvl, isLocked: false }
+        return lvl
+      }))
+      setSelectedRoadmap(prev => ({
+        ...prev,
+        currentLevel: data.nextLevelUnlocked ? activeLevel.levelNumber + 1 : prev.currentLevel,
+        isCompleted: data.roadmapCompleted
+      }))
+      if (data.user) {
+        setUser({ ...user, xpTotal: data.user.xpTotal, streakCount: data.user.streakCount })
+      }
+      setActiveLevel(null)
+      setShowQuizModal(false)
+      
+      const roadmapId = selectedRoadmap._id
+      const roadmapListRes = await roadmapApi.getAll()
+      setRoadmaps(roadmapListRes.data.roadmaps || [])
+      const updatedSelect = (roadmapListRes.data.roadmaps || []).find(r => r._id === roadmapId)
+      if (updatedSelect) setSelectedRoadmap(updatedSelect)
+    } catch (err) {
+      console.error(err)
+      toast.error(err.response?.data?.message || 'Verification failed. Try again!')
+    } finally {
+      setSubmittingProof(false)
+      setVerifyingText('')
+    }
+  }
+
+  const handleVoiceVerified = async (data) => {
+    if (!activeLevel) return
+    toast.success('Voice explanation approved! Level completed!')
+    setLevels(prev => prev.map(lvl => {
+      if (lvl._id === activeLevel._id) return { ...lvl, isCompleted: true, completedAt: new Date() }
+      if (lvl.levelNumber === activeLevel.levelNumber + 1) return { ...lvl, isLocked: false }
+      return lvl
+    }))
+    setSelectedRoadmap(prev => ({
+      ...prev,
+      currentLevel: data.nextLevelUnlocked ? activeLevel.levelNumber + 1 : prev.currentLevel,
+      isCompleted: data.roadmapCompleted
+    }))
+    if (data.user) {
+      setUser({ ...user, xpTotal: data.user.xpTotal, streakCount: data.user.streakCount })
+    }
+    setActiveLevel(null)
+    setShowVoiceModal(false)
+    
+    const roadmapId = selectedRoadmap._id
+    const roadmapListRes = await roadmapApi.getAll()
+    setRoadmaps(roadmapListRes.data.roadmaps || [])
+    const updatedSelect = (roadmapListRes.data.roadmaps || []).find(r => r._id === roadmapId)
+    if (updatedSelect) setSelectedRoadmap(updatedSelect)
+  }
+
   // ── Submit Level Completion Proof ───────────────────────────────
   const handleCompleteLevel = async (level) => {
+    // 1. Photo / Screenshot AI verification path
+    if (level.proofType === 'photo' || level.proofType === 'screenshot') {
+      if (!proofFile) {
+        toast.error('Please upload a photo proof first!')
+        return
+      }
+      setSubmittingProof(true)
+      setVerifyingText('Uploading image proof to AI auditor...')
+      try {
+        const formData = new FormData()
+        formData.append('levelId', level._id)
+        formData.append('image', proofFile)
+        
+        const res = await aiApi.verifyPhoto(formData)
+        const data = res.data
+        
+        if (data.verified) {
+          toast.success(data.feedback || 'Photo proof approved! Level complete! 🎉')
+          
+          setLevels(prev => prev.map(lvl => {
+            if (lvl._id === level._id) return { ...lvl, isCompleted: true, completedAt: new Date() }
+            if (lvl.levelNumber === level.levelNumber + 1) return { ...lvl, isLocked: false }
+            return lvl
+          }))
+          
+          setSelectedRoadmap(prev => ({
+            ...prev,
+            currentLevel: data.nextLevelUnlocked ? level.levelNumber + 1 : prev.currentLevel,
+            isCompleted: data.roadmapCompleted
+          }))
+          
+          if (data.user) {
+            setUser({ ...user, xpTotal: data.user.xpTotal, streakCount: data.user.streakCount })
+          }
+          
+          setActiveLevel(null)
+          setProofFile(null)
+          
+          const roadmapId = selectedRoadmap._id
+          const roadmapListRes = await roadmapApi.getAll()
+          setRoadmaps(roadmapListRes.data.roadmaps || [])
+          const updatedSelect = (roadmapListRes.data.roadmaps || []).find(r => r._id === roadmapId)
+          if (updatedSelect) setSelectedRoadmap(updatedSelect)
+        } else {
+          toast.error(data.feedback || 'AI verification failed. Check feedback and try again.')
+        }
+      } catch (err) {
+        console.error(err)
+        toast.error(err.response?.data?.message || 'Verification failed. Try again.')
+      } finally {
+        setSubmittingProof(false)
+        setVerifyingText('')
+      }
+      return
+    }
+
+    // 2. Original code/text/timer submission path
     let proofData = null
 
     if (level.proofType === 'quiz') {
-      // Gather quiz answers
       const answers = level.quizQuestions.map((_, idx) => quizAnswers[idx])
       if (answers.some(ans => ans === undefined)) {
         toast.error('Please answer all quiz questions!')
@@ -242,7 +379,6 @@ export default function DashboardPage() {
       }
       proofData = { answers }
     } else {
-      // Text proof / URL / verification content
       if (!proofText.trim()) {
         toast.error('Please provide a written confirmation or description of completion.')
         return
@@ -252,7 +388,6 @@ export default function DashboardPage() {
 
     setSubmittingProof(true)
     
-    // AAA Game simulation scanning effect
     const scanPhases = [
       'Initializing secure connection...',
       'Analyzing proof file signature...',
@@ -274,26 +409,22 @@ export default function DashboardPage() {
 
       toast.success(data.message)
       
-      // Update local level states
       setLevels(prev => prev.map(lvl => {
         if (lvl._id === level._id) {
           return { ...lvl, isCompleted: true, completedAt: new Date() }
         }
-        // Unlock the next level
         if (lvl.levelNumber === level.levelNumber + 1) {
           return { ...lvl, isLocked: false }
         }
         return lvl
       }))
 
-      // Update roadmap state
       setSelectedRoadmap(prev => ({
         ...prev,
         currentLevel: data.nextLevelUnlocked ? level.levelNumber + 1 : prev.currentLevel,
         isCompleted: data.roadmapCompleted
       }))
 
-      // Update user XP & Streak in Zustand store
       if (data.user) {
         setUser({
           ...user,
@@ -302,12 +433,10 @@ export default function DashboardPage() {
         })
       }
 
-      // Close modal
       setActiveLevel(null)
       setProofText('')
       setQuizAnswers({})
       
-      // Refresh roadmap listings to reflect current Level/XP updates
       const roadmapId = selectedRoadmap._id
       const roadmapListRes = await roadmapApi.getAll()
       setRoadmaps(roadmapListRes.data.roadmaps || [])
@@ -813,7 +942,6 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted leading-relaxed">{activeLevel.description}</p>
               </div>
 
-              {/* PROOF INPUT AREA DEPENDING ON TYPE */}
               {activeLevel.isCompleted ? (
                 <div className="flex flex-col items-center justify-center py-6 text-center bg-green/5 border border-green/20 rounded-2xl">
                   <CheckCircle size={32} className="text-green mb-2" />
@@ -825,37 +953,72 @@ export default function DashboardPage() {
                   <h4 className="text-xs font-bold text-muted uppercase tracking-wider">Proof of Work Needed ({activeLevel.proofType})</h4>
 
                   {/* 1. QUIZ PROOF */}
-                  {activeLevel.proofType === 'quiz' && activeLevel.quizQuestions && (
-                    <div className="space-y-4 max-h-[220px] overflow-y-auto pr-2 no-scrollbar">
-                      {activeLevel.quizQuestions.map((q, qIdx) => (
-                        <div key={qIdx} className="space-y-2 border-b border-border/40 pb-3 last:border-0 last:pb-0">
-                          <p className="text-xs font-semibold text-white">{q.question}</p>
-                          <div className="flex flex-col gap-2">
-                            {q.options.map((opt, oIdx) => {
-                              const isSelected = quizAnswers[qIdx] === oIdx
-                              return (
-                                <button
-                                  key={oIdx}
-                                  type="button"
-                                  onClick={() => setQuizAnswers(prev => ({ ...prev, [qIdx]: oIdx }))}
-                                  className={`w-full text-left p-3 rounded-xl border text-xs transition-all duration-200 ${
-                                    isSelected
-                                      ? 'bg-brand/10 border-brand text-white font-semibold'
-                                      : 'bg-card border-border text-muted hover:border-brand/20'
-                                  }`}
-                                >
-                                  {opt}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      ))}
+                  {activeLevel.proofType === 'quiz' && (
+                    <div className="space-y-3 text-center py-4">
+                      <Brain size={36} className="text-brand mx-auto animate-pulse" />
+                      <p className="text-xs text-muted">
+                        This level requires a knowledge verification quiz. You must score 60% or higher to unlock the next quest.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowQuizModal(true)}
+                        className="btn btn-primary w-full py-3 text-xs flex items-center justify-center gap-1.5"
+                      >
+                        <Play size={12} /> Start Quiz Verification
+                      </button>
                     </div>
                   )}
 
-                  {/* 2. WRITTEN/CONFIRMATION PROOF (Timer, Code, Photo, etc.) */}
-                  {activeLevel.proofType !== 'quiz' && (
+                  {/* 2. VOICE PROOF */}
+                  {activeLevel.proofType === 'voice' && (
+                    <div className="space-y-3 text-center py-4">
+                      <Volume2 size={36} className="text-brand mx-auto animate-pulse" />
+                      <p className="text-xs text-muted">
+                        This level requires voice explanation. Explain the concepts out loud, and AI will evaluate your understanding.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowVoiceModal(true)}
+                        className="btn btn-primary w-full py-3 text-xs flex items-center justify-center gap-1.5"
+                      >
+                        <Play size={12} /> Start Voice Explanation
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 3. PHOTO / SCREENSHOT PROOF */}
+                  {(activeLevel.proofType === 'photo' || activeLevel.proofType === 'screenshot') && (
+                    <div className="space-y-3">
+                      <p className="text-[11px] text-muted">
+                        Upload a photo or screenshot of your completed work:
+                      </p>
+                      {proofFile ? (
+                        <div className="relative">
+                          <img src={URL.createObjectURL(proofFile)} alt="Preview" className="w-full rounded-2xl max-h-40 object-cover" />
+                          <button type="button" onClick={() => setProofFile(null)} className="absolute top-2 right-2 w-6 h-6 bg-bg/85 rounded-full text-coral text-xs">✕</button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => proofFileInputRef.current?.click()}
+                          className="w-full h-32 rounded-2xl border-2 border-dashed border-border hover:border-brand/40 bg-card flex flex-col items-center justify-center gap-2"
+                        >
+                          <Camera size={24} className="text-muted/50" />
+                          <span className="text-xs text-muted">Click to select photo proof</span>
+                        </button>
+                      )}
+                      <input
+                        ref={proofFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={e => setProofFile(e.target.files[0])}
+                      />
+                    </div>
+                  )}
+
+                  {/* 4. WRITTEN/CONFIRMATION PROOF (Timer, Code, etc.) */}
+                  {activeLevel.proofType !== 'quiz' && activeLevel.proofType !== 'voice' && activeLevel.proofType !== 'photo' && activeLevel.proofType !== 'screenshot' && (
                     <div className="space-y-3">
                       <p className="text-[11px] text-muted">
                         Explain how you completed this level, paste your code link, or state your outcome:
@@ -877,22 +1040,24 @@ export default function DashboardPage() {
                   )}
 
                   {/* Submit Action */}
-                  <div className="flex gap-3 pt-3">
-                    <button
-                      type="button"
-                      onClick={() => setActiveLevel(null)}
-                      className="btn btn-ghost flex-1 py-3 text-xs"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleCompleteLevel(activeLevel)}
-                      className="btn btn-primary flex-1 py-3 text-xs flex items-center justify-center gap-1.5"
-                    >
-                      <Check size={14} /> Submit & Audit
-                    </button>
-                  </div>
+                  {activeLevel.proofType !== 'quiz' && activeLevel.proofType !== 'voice' && (
+                    <div className="flex gap-3 pt-3">
+                      <button
+                        type="button"
+                        onClick={() => setActiveLevel(null)}
+                        className="btn btn-ghost flex-1 py-3 text-xs"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCompleteLevel(activeLevel)}
+                        className="btn btn-primary flex-1 py-3 text-xs flex items-center justify-center gap-1.5"
+                      >
+                        <Check size={14} /> Submit & Audit
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -901,6 +1066,22 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {showQuizModal && activeLevel && (
+          <QuizVerification
+            level={activeLevel}
+            onVerified={handleQuizVerified}
+            onClose={() => { setShowQuizModal(false); setActiveLevel(null); }}
+          />
+        )}
+        {showVoiceModal && activeLevel && (
+          <VoiceVerification
+            level={activeLevel}
+            onVerified={handleVoiceVerified}
+            onClose={() => { setShowVoiceModal(false); setActiveLevel(null); }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

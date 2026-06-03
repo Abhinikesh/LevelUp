@@ -6,6 +6,7 @@ const {
   createRoadmap,
   updateRoadmap,
   deleteRoadmap,
+  getExamStatus,
 } = require('../controllers/roadmapController');
 const { protect } = require('../middleware/auth');
 
@@ -20,5 +21,7 @@ router.route('/:id')
   .get(getRoadmapById)
   .patch(updateRoadmap)
   .delete(deleteRoadmap);
+
+router.get('/:id/exam-status', getExamStatus);
 
 module.exports = router;

@@ -23,12 +23,12 @@ const EXAMPLE_PROMPTS = [
   'Complete a machine learning course end-to-end',
 ]
 
-export default function AIRoadmapGenerator({ onRoadmapGenerated, onClose }) {
-  const [goalText, setGoalText]     = useState('')
-  const [goalType, setGoalType]     = useState('study')
+export default function AIRoadmapGenerator({ onRoadmapGenerated, onClose, initialGoalText = '', initialGoalType = 'study' }) {
+  const [goalText, setGoalText]     = useState(initialGoalText)
+  const [goalType, setGoalType]     = useState(initialGoalType)
   const [deadline, setDeadline]     = useState('')
   const [loading, setLoading]       = useState(false)
-  const [charCount, setCharCount]   = useState(0)
+  const [charCount, setCharCount]   = useState(initialGoalText.length)
   const [promptIdx, setPromptIdx]   = useState(0)
   const textareaRef                 = useRef(null)
 

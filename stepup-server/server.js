@@ -13,7 +13,10 @@ const roadmapRoutes = require('./routes/roadmaps');
 const levelRoutes   = require('./routes/levels');
 const socialRoutes  = require('./routes/social');
 const userRoutes    = require('./routes/users');
-const aiRoutes      = require('./routes/ai');
+const aiRoutes           = require('./routes/ai');
+const coachRoutes        = require('./routes/coach');
+const notificationRoutes = require('./routes/notifications');
+const { initCronJobs } = require('./utils/notificationService');
 
 // ─── App Init ─────────────────────────────────────────────────────────────────
 const app = express();
@@ -98,7 +101,9 @@ app.use('/api/roadmaps', roadmapRoutes);
 app.use('/api/levels',   levelRoutes);
 app.use('/api/social',   socialRoutes);
 app.use('/api/users',    userRoutes);
-app.use('/api/ai',       aiRoutes);
+app.use('/api/ai',            aiRoutes);
+app.use('/api/coach',         coachRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // ─── 404 Handler ──────────────────────────────────────────────────────────────
 app.use((req, res) => {
@@ -203,6 +208,7 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // ─── Start Server ──────────────────────────────────────────────────────────────
 connectDB().then(() => {
+  initCronJobs();
   app.listen(PORT, () => {
     console.log(`\n🚀 STEPUP API running at http://localhost:${PORT}`);
     console.log(`📡 Environment : ${process.env.NODE_ENV || 'development'}`);

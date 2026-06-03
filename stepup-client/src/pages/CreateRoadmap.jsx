@@ -10,6 +10,9 @@ import {
 } from 'lucide-react'
 import { roadmapApi } from '../api/client'
 import toast from 'react-hot-toast'
+import AIRoadmapGenerator from '../components/ai/AIRoadmapGenerator'
+import OCRScanner from '../components/ai/OCRScanner'
+import RoadmapPreview from '../components/ai/RoadmapPreview'
 
 /* ── Step config ── */
 const STEPS = ['Goal Type', 'Details', 'Levels', 'Review']
@@ -80,12 +83,16 @@ export default function CreateRoadmap() {
   const [uploadedImg, setUploadedImg] = useState(null)
   const fileRef = useRef(null)
 
+  const [showAiGen, setShowAiGen] = useState(false)
+  const [showOcrScanner, setShowOcrScanner] = useState(false)
+  const [tempRoadmap, setTempRoadmap] = useState(null)
+
   const selectedType = GOAL_TYPES.find(t => t.id === goalType)
 
   /* ── Navigation ── */
   const canAdvance = [
     goalType !== '',
-    goalText.trim().length > 10 || uploadedImg,
+    goalText.trim().length > 10 || uploadedImg || levels.length > 0,
     levels.length > 0,
     true,
   ][step]
@@ -100,17 +107,37 @@ export default function CreateRoadmap() {
   const goPrev = () => setStep(s => Math.max(s - 1, 0))
 
   /* ── AI Generate ── */
-  const handleGenerate = useCallback(async () => {
-    if (!goalText.trim()) { toast.error('Describe your goal first!'); return }
-    setGenerating(true)
-    // Simulate AI delay
-    await new Promise(r => setTimeout(r, 1800))
-    const gen = generateLevels(goalText, goalType)
-    setLevels(gen)
-    setGenerating(false)
+  const handleGenerate = useCallback(() => {
+    if (inputTab === 0) {
+      if (!goalText.trim() || goalText.trim().length < 10) {
+        toast.error('Please describe your goal in at least 10 characters.')
+        return
+      }
+      setShowAiGen(true)
+    } else if (inputTab === 1 || inputTab === 2) {
+      setShowOcrScanner(true)
+    } else {
+      // Manual tab
+      setStep(2)
+    }
+  }, [goalText, inputTab])
+
+  const handleRoadmapGenerated = useCallback(({ roadmap, levels }) => {
+    setTempRoadmap(roadmap)
+    setLevels(levels.map((l, i) => ({
+      ...l,
+      id: l._id || `gen-${Date.now()}-${i}`,
+    })))
+    setGoalText(roadmap.title)
+    setGoalType(roadmap.type)
+    if (roadmap.deadline) {
+      setDeadline(new Date(roadmap.deadline).toISOString().split('T')[0])
+    }
+    setShowAiGen(false)
+    setShowOcrScanner(false)
     setStep(2)
-    toast.success('AI generated your roadmap! 🤖')
-  }, [goalText, goalType])
+    toast.success('AI Quest Map generated successfully! Review the levels.')
+  }, [])
 
   /* ── Level CRUD ── */
   const addLevel = () => setLevels(prev => [...prev, {
@@ -167,10 +194,19 @@ export default function CreateRoadmap() {
           quizQuestions:     l.quizQuestions,
         })),
       }
+
+      if (tempRoadmap?._id) {
+        try {
+          await roadmapApi.remove(tempRoadmap._id)
+        } catch (e) {
+          console.warn('Failed to cleanup temp roadmap:', e)
+        }
+      }
+
       const { data } = await roadmapApi.create(payload)
       confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 }, colors: ['#6C63FF','#FF6584','#43E97B','#FFB800'] })
       toast.success('🚀 Roadmap launched! Let\'s go!')
-      setTimeout(() => navigate('/map'), 1000)
+      setTimeout(() => navigate(`/map/${data.roadmap._id}`), 1000)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to create roadmap')
     } finally {
@@ -493,96 +529,31 @@ export default function CreateRoadmap() {
 
             {/* ══ STEP 3: Review & Launch ══ */}
             {step === 3 && (
-              <div className="space-y-4">
-                {/* Summary card */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
-                  className="glass-card p-6 border"
-                  style={{ borderColor: selectedType?.color ? `${selectedType.color}40` : '#1E1E2E',
-                           boxShadow: selectedType?.color ? `0 0 40px ${selectedType.color}20` : 'none' }}
-                >
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                      style={{ background: selectedType ? `linear-gradient(135deg,${selectedType.from},${selectedType.to})` : '#6C63FF' }}>
-                      {selectedType && <selectedType.icon size={26} className="text-[#0A0A0F]" />}
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: selectedType?.color || '#6C63FF' }}>
-                        {selectedType?.label || 'Custom'}
-                      </p>
-                      <h2 className="font-display font-black text-xl text-white leading-tight mt-0.5">
-                        {goalText.slice(0, 60) || 'My Roadmap'}{goalText.length > 60 ? '…' : ''}
-                      </h2>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3 mb-6">
-                    {[
-                      { label: 'Levels',     value: levels.length,       color: '#6C63FF' },
-                      { label: 'Total Time', value: `${totalTime}m`,     color: '#FF6584' },
-                      { label: 'Total XP',   value: `${totalXP} XP`,    color: '#FFB800' },
-                    ].map(s => (
-                      <div key={s.label} className="flex flex-col items-center justify-center p-3 rounded-2xl"
-                        style={{ background: `${s.color}10`, border: `1px solid ${s.color}30` }}>
-                        <span className="font-display font-black text-xl" style={{ color: s.color }}>{s.value}</span>
-                        <span className="text-[10px] text-muted mt-0.5">{s.label}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {deadline && (
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl mb-4" style={{ background: '#1E1E2E' }}>
-                      <Calendar size={12} className="text-brand" />
-                      <span className="text-xs text-muted">Deadline: <strong className="text-white">{new Date(deadline).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</strong></span>
-                    </div>
-                  )}
-
-                  {/* First 3 level preview */}
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted mb-2">First Levels Preview</p>
-                    {levels.slice(0, 3).map((l, i) => (
-                      <div key={l.id} className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: '#0D0D18' }}>
-                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black"
-                          style={{ background: '#6C63FF', color: '#fff' }}>{i + 1}</div>
-                        <span className="text-xs text-white font-semibold flex-1 truncate">{l.title}</span>
-                        <span className="text-[9px] text-gold font-bold">+{l.xpReward}</span>
-                      </div>
-                    ))}
-                    {levels.length > 3 && (
-                      <p className="text-center text-[10px] text-muted">+{levels.length - 3} more levels</p>
-                    )}
-                  </div>
-                </motion.div>
-
-                <motion.button
-                  id="btn-launch-roadmap"
-                  onClick={handleLaunch}
-                  disabled={submitting}
-                  whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                  className="w-full py-4 rounded-2xl font-display font-black text-base flex items-center justify-center gap-2"
-                  style={{
-                    background:  'linear-gradient(135deg, #6C63FF 0%, #FF6584 100%)',
-                    boxShadow:   '0 0 40px rgba(108,99,255,0.5)',
-                    color: '#fff',
-                  }}
-                >
-                  {submitting
-                    ? <><RefreshCw size={18} className="animate-spin" /> Launching…</>
-                    : <><Rocket size={18} /> Launch My Roadmap</>}
-                </motion.button>
-              </div>
+              <RoadmapPreview
+                roadmap={{
+                  title: goalText || 'My Roadmap',
+                  type: goalType || 'custom',
+                  description: 'Confirm and start your new journey',
+                  deadline: deadline || null,
+                  _id: tempRoadmap?._id
+                }}
+                levels={levels}
+                onConfirm={handleLaunch}
+                onClose={() => navigate('/dashboard')}
+                onEdit={() => setStep(2)}
+              />
             )}
           </motion.div>
         </AnimatePresence>
 
         {/* ── Bottom Nav ── */}
-        <div className="flex items-center gap-4 mt-8">
-          {step > 0 && (
-            <button onClick={goPrev} className="btn btn-ghost flex-1 flex items-center gap-2 py-3">
-              <ChevronLeft size={16} /> Back
-            </button>
-          )}
-          {step < 3 && (
+        {step < 3 && (
+          <div className="flex items-center gap-4 mt-8">
+            {step > 0 && (
+              <button onClick={goPrev} className="btn btn-ghost flex-1 flex items-center gap-2 py-3">
+                <ChevronLeft size={16} /> Back
+              </button>
+            )}
             <button
               id="btn-wizard-next"
               onClick={goNext}
@@ -596,9 +567,26 @@ export default function CreateRoadmap() {
                 <>Next <ChevronRight size={16} /></>
               )}
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+
+      <AnimatePresence>
+        {showAiGen && (
+          <AIRoadmapGenerator
+            initialGoalText={goalText}
+            initialGoalType={goalType || 'study'}
+            onRoadmapGenerated={handleRoadmapGenerated}
+            onClose={() => setShowAiGen(false)}
+          />
+        )}
+        {showOcrScanner && (
+          <OCRScanner
+            onRoadmapGenerated={handleRoadmapGenerated}
+            onClose={() => setShowOcrScanner(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

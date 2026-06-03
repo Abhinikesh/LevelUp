@@ -1,5 +1,7 @@
 const Roadmap = require('../models/Roadmap');
 const Level = require('../models/Level');
+const LevelCompletion = require('../models/LevelCompletion');
+const { calculateExamSchedule } = require('../utils/examScheduler');
 
 /**
  * GET /api/roadmaps
@@ -69,9 +71,11 @@ const createRoadmap = async (req, res) => {
       title,
       type,
       source: source || 'manual',
-      deadline: deadline || null,
+      deadline: req.body.deadline || null,
       totalLevels: levels && levels.length ? levels.length : 0,
       currentLevel: 1,
+      examMode: req.body.examMode || false,
+      examDate: req.body.examDate || null,
     });
 
     // 2. If levels are provided, insert them
@@ -170,10 +174,61 @@ const deleteRoadmap = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/roadmaps/:id/exam-status
+ * Get exam schedule status for a roadmap
+ */
+const getExamStatus = async (req, res) => {
+  try {
+    const roadmap = await Roadmap.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!roadmap) {
+      return res.status(404).json({ success: false, message: 'Roadmap not found' });
+    }
+
+    if (!roadmap.examMode || !roadmap.examDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'This roadmap does not have exam mode enabled',
+      });
+    }
+
+    const levels = await Level.find({ roadmapId: roadmap._id }).sort({ levelNumber: 1 });
+
+    // Get completions done today
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+    const completionsToday = await LevelCompletion.find({
+      userId: req.user._id,
+      roadmapId: roadmap._id,
+      completedAt: { $gte: todayStart, $lt: tomorrowStart },
+    });
+
+    const schedule = calculateExamSchedule(roadmap, levels, completionsToday);
+
+    return res.status(200).json({
+      success: true,
+      examStatus: schedule,
+      roadmap: {
+        id: roadmap._id,
+        title: roadmap.title,
+        examDate: roadmap.examDate,
+        examMode: roadmap.examMode,
+      },
+    });
+  } catch (error) {
+    console.error('[getExamStatus] Error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to retrieve exam status' });
+  }
+};
+
 module.exports = {
   getAllRoadmaps,
   getRoadmapById,
   createRoadmap,
   updateRoadmap,
   deleteRoadmap,
+  getExamStatus,
 };

@@ -3,6 +3,7 @@ const LevelCompletion = require('../models/LevelCompletion');
 const Roadmap = require('../models/Roadmap');
 const User = require('../models/User');
 const { checkAndAwardBadges } = require('./userController');
+const { generateGymChallenge } = require('../utils/gymGenerator');
 
 
 /**
@@ -301,9 +302,40 @@ const completeLevel = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/levels/:id/gym
+ * Fetch or generate a study/training gym challenge for the level
+ */
+const getGymChallenge = async (req, res) => {
+  try {
+    const level = await Level.findById(req.params.id);
+    if (!level) {
+      return res.status(404).json({ success: false, message: 'Level not found' });
+    }
+
+    // Verify roadmap ownership
+    const roadmap = await Roadmap.findOne({ _id: level.roadmapId, userId: req.user._id });
+    if (!roadmap) {
+      return res.status(403).json({ success: false, message: 'Unauthorized access to level' });
+    }
+
+    const { type } = req.query; // optional: flashcards | code | fill | matching
+    const challenge = await generateGymChallenge(level, type);
+
+    return res.status(200).json({
+      success: true,
+      challenge,
+    });
+  } catch (error) {
+    console.error('[getGymChallenge] Error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to generate gym challenge' });
+  }
+};
+
 module.exports = {
   getLevelsByRoadmap,
   getLevelById,
   createLevel,
   completeLevel,
+  getGymChallenge,
 };
