@@ -206,7 +206,9 @@ export default function CreateRoadmap() {
       const { data } = await roadmapApi.create(payload)
       confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 }, colors: ['#6C63FF','#FF6584','#43E97B','#FFB800'] })
       toast.success('🚀 Roadmap launched! Let\'s go!')
-      setTimeout(() => navigate(`/map/${data.roadmap._id}`), 1000)
+      // Store the new roadmap ID so MapView can auto-open it
+      sessionStorage.setItem('openRoadmapId', data.roadmap._id)
+      setTimeout(() => navigate('/map'), 1000)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to create roadmap')
     } finally {

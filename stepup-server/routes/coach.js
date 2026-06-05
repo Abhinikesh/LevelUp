@@ -11,7 +11,7 @@ const User = require('../models/User');
 const coachLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
-  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+  keyGenerator: (req) => req.user._id.toString(),
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many messages. Please wait a moment before chatting again.' },

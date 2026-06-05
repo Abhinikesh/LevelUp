@@ -12,6 +12,11 @@ import useAuthStore from '../store/authStore'
 import { levelApi, aiApi } from '../api/client'
 import QuizVerification from '../components/ai/QuizVerification'
 import VoiceVerification from '../components/ai/VoiceVerification'
+import AICoach from '../components/ai/AICoach'
+import GymLevelDetail from '../components/gym/GymLevelDetail'
+import ExamModeHeader from '../components/exam/ExamModeHeader'
+import BadgeModal from '../components/ui/BadgeModal'
+import XPAnimation from '../components/ui/XPAnimation'
 
 /* ── helpers ── */
 function getLevelPosition(index, total) {
@@ -106,6 +111,11 @@ export default function MapView() {
   const [completedAnim, setCompletedAnim]  = useState(null) // levelId
   const [showQuizModal, setShowQuizModal] = useState(false)
   const [showVoiceModal, setShowVoiceModal] = useState(false)
+  const [showCoach, setShowCoach] = useState(false)
+  const [showGym, setShowGym] = useState(false)
+  const [activeBadge, setActiveBadge] = useState(null)
+  const [examRefresh, setExamRefresh] = useState(0)
+  const [xpAnimationAmount, setXpAnimationAmount] = useState(null)
   const [proofFile, setProofFile] = useState(null)
   const mapRef = useRef(null)
   const proofFileInputRef = useRef(null)
@@ -116,9 +126,11 @@ export default function MapView() {
     setProofFile(null)
   }, [levels, selectedLevel])
 
-  // Load on mount
+  // Load on mount — auto-select a newly created roadmap if present
   useEffect(() => {
-    fetchRoadmaps()
+    const newId = sessionStorage.getItem('openRoadmapId')
+    if (newId) sessionStorage.removeItem('openRoadmapId')
+    fetchRoadmaps(newId || null)
   }, []) // eslint-disable-line
 
   // Scroll to active node
@@ -144,7 +156,7 @@ export default function MapView() {
         proofUrl: 'https://stepup-uploads.s3.amazonaws.com/quiz-proof.png',
         proofData: { answers },
       })
-      setXpFly({ amount: selectedLevel.xpReward })
+      setXpAnimationAmount(selectedLevel.xpReward)
       confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 }, colors: ['#6C63FF', '#FF6584', '#43E97B', '#FFB800'] })
       setLocalLevels(prev =>
         prev.map(l => {
@@ -158,6 +170,10 @@ export default function MapView() {
       if (data.user) {
         setUser({ ...user, xpTotal: data.user.xpTotal, streakCount: data.user.streakCount })
       }
+      if (data.newBadges && data.newBadges.length > 0) {
+        setActiveBadge(data.newBadges[0])
+      }
+      setExamRefresh(r => r + 1)
       toast.success(data.message || 'Quiz cleared! Level complete! 🎉')
       setSelectedLevel(null)
       setShowQuizModal(false)
@@ -172,7 +188,7 @@ export default function MapView() {
 
   const handleVoiceVerified = useCallback((data) => {
     if (!selectedLevel) return
-    setXpFly({ amount: selectedLevel.xpReward })
+    setXpAnimationAmount(selectedLevel.xpReward)
     confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 }, colors: ['#6C63FF', '#43E97B', '#FFB800'] })
     setLocalLevels(prev =>
       prev.map(l => {
@@ -186,6 +202,10 @@ export default function MapView() {
     if (data.user) {
       setUser({ ...user, xpTotal: data.user.xpTotal, streakCount: data.user.streakCount })
     }
+    if (data.newBadges && data.newBadges.length > 0) {
+      setActiveBadge(data.newBadges[0])
+    }
+    setExamRefresh(r => r + 1)
     toast.success('Voice challenge verified! Level complete! 🎉')
     setSelectedLevel(null)
     setShowVoiceModal(false)
@@ -212,7 +232,7 @@ export default function MapView() {
         const data = res.data
         
         if (data.verified) {
-          setXpFly({ amount: selectedLevel.xpReward })
+          setXpAnimationAmount(selectedLevel.xpReward)
           confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 }, colors: ['#6C63FF', '#43E97B', '#FFB800'] })
           
           setLocalLevels(prev =>
@@ -229,6 +249,10 @@ export default function MapView() {
           if (data.user) {
             setUser({ ...user, xpTotal: data.user.xpTotal, streakCount: data.user.streakCount })
           }
+          if (data.newBadges && data.newBadges.length > 0) {
+            setActiveBadge(data.newBadges[0])
+          }
+          setExamRefresh(r => r + 1)
           
           toast.success(data.feedback || 'Photo proof approved! Level complete! 🎉')
           setSelectedLevel(null)
@@ -285,7 +309,7 @@ export default function MapView() {
       })
 
       // Trigger XP flyup + confetti
-      setXpFly({ amount: selectedLevel.xpReward })
+      setXpAnimationAmount(selectedLevel.xpReward)
       confetti({
         particleCount: 150,
         spread: 80,
@@ -309,6 +333,10 @@ export default function MapView() {
       if (data.user) {
         setUser({ ...user, xpTotal: data.user.xpTotal, streakCount: data.user.streakCount })
       }
+      if (data.newBadges && data.newBadges.length > 0) {
+        setActiveBadge(data.newBadges[0])
+      }
+      setExamRefresh(r => r + 1)
 
       toast.success(data.message || 'Level complete! 🎉')
       setSelectedLevel(null)
@@ -395,6 +423,11 @@ export default function MapView() {
           </div>
         </div>
       </div>
+
+      {/* ── EXAM MODE HEADER ── */}
+      {activeRoadmap?.examMode && (
+        <ExamModeHeader roadmapId={activeRoadmap._id} refreshTrigger={examRefresh} />
+      )}
 
       {/* ── PROGRESS BAR ── */}
       {totalCount > 0 && (
@@ -781,10 +814,26 @@ export default function MapView() {
 
                   {/* Description */}
                   <div
-                    className="p-4 rounded-2xl mb-5 text-xs text-muted leading-relaxed"
+                    className="p-4 rounded-2xl mb-4 text-xs text-muted leading-relaxed"
                     style={{ background: '#0D0D18', border: '1px solid #1E1E2E' }}
                   >
                     {selectedLevel.description}
+                  </div>
+
+                  {/* ARIA and Gym quick action row */}
+                  <div className="flex gap-3 mb-5">
+                    <button
+                      onClick={() => setShowCoach(true)}
+                      className="flex-1 py-2 px-3 rounded-xl border border-brand/20 bg-brand/5 hover:bg-brand/10 text-brand text-[10px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <Brain size={12} /> Chat with ARIA
+                    </button>
+                    <button
+                      onClick={() => setShowGym(true)}
+                      className="flex-1 py-2 px-3 rounded-xl border border-pink-500/20 bg-pink-500/5 hover:bg-pink-500/10 text-pink-500 text-[10px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <Dumbbell size={12} /> Practice in Gym
+                    </button>
                   </div>
 
                   {/* ── Completed state ── */}
@@ -938,6 +987,37 @@ export default function MapView() {
             level={selectedLevel}
             onVerified={handleVoiceVerified}
             onClose={() => { setShowVoiceModal(false); setSelectedLevel(null); }}
+          />
+        )}
+        {showCoach && selectedLevel && (
+          <AICoach
+            isOpen={showCoach}
+            onClose={() => setShowCoach(false)}
+            levelId={selectedLevel._id}
+            levelTitle={selectedLevel.title}
+          />
+        )}
+        {showGym && selectedLevel && (
+          <GymLevelDetail
+            levelId={selectedLevel._id}
+            levelTitle={selectedLevel.title}
+            onClose={() => setShowGym(false)}
+            onXpEarned={(amt) => {
+              setXpAnimationAmount(amt);
+              setExamRefresh(r => r + 1);
+            }}
+          />
+        )}
+        {activeBadge && (
+          <BadgeModal
+            badge={activeBadge}
+            onClose={() => setActiveBadge(null)}
+          />
+        )}
+        {xpAnimationAmount && (
+          <XPAnimation
+            amount={xpAnimationAmount}
+            onDone={() => setXpAnimationAmount(null)}
           />
         )}
       </AnimatePresence>

@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Settings as SettingsIcon, Shield, Sliders, RefreshCcw, LogOut, Check, Sparkles, User, Key } from 'lucide-react'
+import { Settings as SettingsIcon, Shield, Sliders, RefreshCcw, LogOut, Check, Sparkles, User, Key, Bell } from 'lucide-react'
 import useAuthStore from '../store/authStore'
-import { authApi } from '../api/client'
+import { authApi, notificationApi } from '../api/client'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 
@@ -18,6 +18,39 @@ export default function Settings() {
   const [soundEffects, setSoundEffects] = useState(true)
   const [particles, setParticles] = useState(true)
   const [particleIntensity, setParticleIntensity] = useState(50)
+
+  // Notifications preferences states
+  const [notifPrefs, setNotifPrefs] = useState({
+    dailyStreakReminder: true,
+    weeklyProgressReport: true,
+    newFriendRequests: true,
+    examUrgencyAlerts: true,
+  })
+
+  useEffect(() => {
+    async function loadNotifs() {
+      try {
+        const { data } = await notificationApi.getPrefs()
+        if (data.success && data.notificationPrefs) {
+          setNotifPrefs(data.notificationPrefs)
+        }
+      } catch (err) {
+        console.error('Failed to load notification settings:', err)
+      }
+    }
+    loadNotifs()
+  }, [])
+
+  const handleToggleNotifPref = async (key) => {
+    const updated = { ...notifPrefs, [key]: !notifPrefs[key] }
+    setNotifPrefs(updated)
+    try {
+      await notificationApi.updatePrefs(updated)
+      toast.success('Notification settings updated! 🔔', { id: 'notif-pref' })
+    } catch (err) {
+      toast.error('Failed to save preferences.')
+    }
+  }
   const handleUpdatePassword = async (e) => {
     e.preventDefault()
     if (!passwordForm.currentPassword || !passwordForm.newPassword) {
@@ -191,6 +224,97 @@ export default function Settings() {
                   />
                 </div>
               )}
+            </div>
+          </motion.div>
+
+          {/* Section 2b: Notification Settings */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08 }}
+            className="glass-card p-6 border border-border"
+          >
+            <div className="flex items-center gap-2 mb-6 border-b border-border/40 pb-3">
+              <Bell size={18} className="text-brand" />
+              <h3 className="font-display font-black text-base text-white">Notifications</h3>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-xs text-white">Daily Streak Reminders</h4>
+                  <p className="text-[10px] text-muted mt-0.5">Get warned by ARIA at 8 PM if you haven't cleared a node today</p>
+                </div>
+                <button
+                  onClick={() => handleToggleNotifPref('dailyStreakReminder')}
+                  className={`w-12 h-6 rounded-full relative transition-all duration-300 ${
+                    notifPrefs.dailyStreakReminder ? 'bg-brand' : 'bg-border'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 ${
+                      notifPrefs.dailyStreakReminder ? 'right-1' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-xs text-white">Exam Urgency Warnings</h4>
+                  <p className="text-[10px] text-muted mt-0.5">Receive reminders when your study target schedules are slipping</p>
+                </div>
+                <button
+                  onClick={() => handleToggleNotifPref('examUrgencyAlerts')}
+                  className={`w-12 h-6 rounded-full relative transition-all duration-300 ${
+                    notifPrefs.examUrgencyAlerts ? 'bg-brand' : 'bg-border'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 ${
+                      notifPrefs.examUrgencyAlerts ? 'right-1' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-xs text-white">Weekly Progress Reports</h4>
+                  <p className="text-[10px] text-muted mt-0.5">Receive summary stats of XP earned and campaigns completed</p>
+                </div>
+                <button
+                  onClick={() => handleToggleNotifPref('weeklyProgressReport')}
+                  className={`w-12 h-6 rounded-full relative transition-all duration-300 ${
+                    notifPrefs.weeklyProgressReport ? 'bg-brand' : 'bg-border'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 ${
+                      notifPrefs.weeklyProgressReport ? 'right-1' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-xs text-white">New Friend Requests</h4>
+                  <p className="text-[10px] text-muted mt-0.5">Get notified when a learner requests to be your study partner</p>
+                </div>
+                <button
+                  onClick={() => handleToggleNotifPref('newFriendRequests')}
+                  className={`w-12 h-6 rounded-full relative transition-all duration-300 ${
+                    notifPrefs.newFriendRequests ? 'bg-brand' : 'bg-border'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 ${
+                      notifPrefs.newFriendRequests ? 'right-1' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           </motion.div>
 

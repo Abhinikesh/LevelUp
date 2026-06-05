@@ -109,11 +109,10 @@ roadmapSchema.virtual('daysRemaining').get(function () {
 });
 
 // Auto-set completedAt when isCompleted becomes true
-roadmapSchema.pre('save', function (next) {
+roadmapSchema.pre('save', async function () {
   if (this.isModified('isCompleted') && this.isCompleted && !this.completedAt) {
     this.completedAt = new Date();
   }
-  next();
 });
 
 // Compound index for user roadmap lookups

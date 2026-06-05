@@ -4,6 +4,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 import AppLayout from './components/layout/AppLayout'
 import useAuthStore from './store/authStore'
+import OfflineBanner from './components/ui/OfflineBanner'
+import OnboardingTour from './components/ui/OnboardingTour'
+import GlobalSearch from './components/ui/GlobalSearch'
+import NotificationPermission from './components/ui/NotificationPermission'
+import CustomCursor from './components/ui/CustomCursor'
 
 /* ── Lazy-loaded pages ── */
 const Landing        = lazy(() => import('./pages/Landing'))
@@ -92,6 +97,11 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+      <CustomCursor />
+      <OfflineBanner />
+      <OnboardingTour />
+      <GlobalSearch />
+      <NotificationPermission />
       <Suspense fallback={<PageLoader />}>
         <AnimatePresence mode="wait" initial={false}>
           <Routes location={location} key={location.pathname}>

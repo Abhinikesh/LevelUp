@@ -29,8 +29,8 @@ const levelSchema = new mongoose.Schema(
     proofType: {
       type: String,
       enum: {
-        values: ['quiz', 'photo', 'code', 'voice', 'timer', 'screenshot'],
-        message: 'Proof type must be one of: quiz, photo, code, voice, timer, screenshot',
+        values: ['quiz', 'photo', 'code', 'voice', 'timer', 'screenshot', 'text'],
+        message: 'Proof type must be one of: quiz, photo, code, voice, timer, screenshot, text',
       },
       required: [true, 'Proof type is required'],
     },
@@ -98,12 +98,11 @@ levelSchema.virtual('estimatedHours').get(function () {
 });
 
 // Auto-set completedAt when isCompleted becomes true
-levelSchema.pre('save', function (next) {
+levelSchema.pre('save', async function () {
   if (this.isModified('isCompleted') && this.isCompleted && !this.completedAt) {
     this.completedAt = new Date();
     this.isLocked = false;
   }
-  next();
 });
 
 // Compound unique index: one level number per roadmap
