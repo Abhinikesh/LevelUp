@@ -41,11 +41,30 @@ exports.createRoadmap = async (req, res) => {
     
     res.status(201).json({
       success: true,
+      message: `Roadmap "${populatedRoadmap.title}" created successfully! Let's level up! 🚀`,
       roadmap: populatedRoadmap,
       levels: roadmapLevels
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('[createRoadmap]', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.updateRoadmap = async (req, res) => {
+  try {
+    const roadmap = await Roadmap.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!roadmap) {
+      return res.status(404).json({ success: false, message: 'Roadmap not found' });
+    }
+    res.json({ success: true, message: 'Roadmap updated', roadmap });
+  } catch (error) {
+    console.error('[updateRoadmap]', error.message);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
