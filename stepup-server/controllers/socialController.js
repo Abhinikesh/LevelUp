@@ -232,11 +232,20 @@ const getLeaderboard = async (req, res) => {
       users = await User.find({ _id: { $in: friendIds } })
         .select('name email avatar xpTotal streakCount')
         .sort({ xpTotal: -1 });
-    } else if (type === 'roadmap' && roadmapId) {
+    } else if (type === 'roadmap') {
       // Find all users who have a roadmap with this title (same campaign)
-      const targetRoadmap = await Roadmap.findOne({ _id: roadmapId, userId: req.user._id });
+      let targetRoadmap;
+      if (roadmapId) {
+        targetRoadmap = await Roadmap.findOne({ _id: roadmapId, userId: req.user._id });
+      } else {
+        targetRoadmap = await Roadmap.findOne({ userId: req.user._id, isCompleted: false }).sort({ updatedAt: -1 });
+        if (!targetRoadmap) {
+          targetRoadmap = await Roadmap.findOne({ userId: req.user._id }).sort({ updatedAt: -1 });
+        }
+      }
+
       if (!targetRoadmap) {
-        return res.status(404).json({ success: false, message: 'Roadmap not found' });
+        return res.status(200).json({ success: true, leaderboard: [] });
       }
 
       const me = await User.findById(req.user._id);
@@ -251,14 +260,16 @@ const getLeaderboard = async (req, res) => {
         title: targetRoadmap.title,
       }).populate('userId', 'name email avatar xpTotal streakCount');
 
-      users = sameRoadmaps.map((rm) => ({
-        ...rm.userId.toObject(),
-        roadmapProgress: {
-          currentLevel: rm.currentLevel,
-          totalLevels:  rm.totalLevels,
-          isCompleted:  rm.isCompleted,
-        },
-      })).sort((a, b) => b.roadmapProgress.currentLevel - a.roadmapProgress.currentLevel);
+      users = sameRoadmaps
+        .filter((rm) => rm.userId)
+        .map((rm) => ({
+          ...rm.userId.toObject(),
+          roadmapProgress: {
+            currentLevel: rm.currentLevel,
+            totalLevels:  rm.totalLevels,
+            isCompleted:  rm.isCompleted,
+          },
+        })).sort((a, b) => b.roadmapProgress.currentLevel - a.roadmapProgress.currentLevel);
     }
 
     const rankedUsers = users.map((u, idx) => ({

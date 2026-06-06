@@ -5,12 +5,16 @@ const User = require('../models/User');
 const { checkAndAwardBadges } = require('./userController');
 
 /**
- * GET /api/levels/roadmap/:roadmapId
+ * GET /api/levels/roadmap/:roadmapId or GET /api/levels?roadmapId=...
  */
 exports.getLevels = async (req, res) => {
   try {
+    const roadmapId = req.params.roadmapId || req.query.roadmapId;
+    if (!roadmapId) {
+      return res.status(400).json({ success: false, message: 'roadmapId is required' });
+    }
     const levels = await Level.find({
-      roadmapId: req.params.roadmapId
+      roadmapId
     }).sort({ levelNumber: 1 });
 
     res.json({ success: true, levels });
