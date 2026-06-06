@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LogOut, Zap, Flame, Trophy, ChevronDown } from 'lucide-react'
-import useAuthStore from '../../store/authStore'
+import useStore from '../../store/useStore'
 import toast from 'react-hot-toast'
 
 export default function Navbar() {
-  const { user, logout } = useAuthStore()
+  const { user, logout } = useStore()
   const navigate         = useNavigate()
   const location         = useLocation()
   const [scrolled,      setScrolled]      = useState(false)
@@ -55,7 +55,7 @@ export default function Navbar() {
       <div className="container mx-auto px-6 h-16 flex items-center justify-between">
 
         {/* ── Logo ─────────────────────────────────────────── */}
-        <Link to="/dashboard" className="flex items-center gap-2.5 group">
+        <Link to="/home/dashboard" className="flex items-center gap-2.5 group">
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-white text-sm transition-transform duration-200 group-hover:scale-110"
             style={{ background: 'linear-gradient(135deg, #6C63FF, #FF6584)' }}

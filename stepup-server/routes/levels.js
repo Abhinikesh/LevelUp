@@ -1,28 +1,10 @@
-const express = require('express');
-const router = express.Router();
-const {
-  getLevelsByRoadmap,
-  getLevelById,
-  createLevel,
-  completeLevel,
-  getGymChallenge,
-} = require('../controllers/levelController');
-const { protect } = require('../middleware/auth');
+const router = require('express').Router();
+const { getLevels, completeLevel } = 
+  require('../controllers/levelController');
+const auth = require('../middleware/auth');
 
-// All level routes protected by auth
-router.use(protect);
-
-router.route('/')
-  .get(getLevelsByRoadmap)
-  .post(createLevel);
-
-router.route('/:id')
-  .get(getLevelById);
-
-router.route('/:id/complete')
-  .post(completeLevel);
-
-router.route('/:id/gym')
-  .get(getGymChallenge);
+router.use(auth);
+router.get('/roadmap/:roadmapId', getLevels);
+router.post('/:levelId/complete', completeLevel);
 
 module.exports = router;

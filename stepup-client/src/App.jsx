@@ -3,7 +3,8 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 import AppLayout from './components/layout/AppLayout'
-import useAuthStore from './store/authStore'
+import useStore from './store/useStore'
+import ProtectedRoute from './components/ProtectedRoute'
 import OfflineBanner from './components/ui/OfflineBanner'
 import OnboardingTour from './components/ui/OnboardingTour'
 import GlobalSearch from './components/ui/GlobalSearch'
@@ -76,24 +77,16 @@ function ComingSoon({ title, icon = '🚧' }) {
 }
 
 /* ── Route guards ── */
-function ProtectedRoute({ children }) {
-  const { user, token } = useAuthStore()
-  if (!user || !token) return <Navigate to="/login" replace />
-  return children
-}
-
 function GuestRoute({ children }) {
-  const { user, token } = useAuthStore()
-  if (user && token) return <Navigate to="/dashboard" replace />
-  return children
+  const isAuthenticated = useStore(state => state.isAuthenticated);
+  const token = localStorage.getItem('stepup_token');
+  if (isAuthenticated || token) return <Navigate to="/home/dashboard" replace />;
+  return children;
 }
 
 /* ── Root App ── */
 export default function App() {
-  const { initialize } = useAuthStore()
   const location = useLocation()
-
-  useEffect(() => { initialize() }, [initialize])
 
   return (
     <ErrorBoundary>
@@ -119,31 +112,36 @@ export default function App() {
             } />
 
             {/* ── Protected app shell ── */}
-            <Route element={
-              <ProtectedRoute><AppLayout /></ProtectedRoute>
+            <Route path="/home" element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
             }>
-              <Route path="/dashboard" element={
+              <Route path="dashboard" element={
                 <PageTransition><DashboardPage /></PageTransition>
               } />
-              <Route path="/map" element={
+              <Route path="map" element={
                 <PageTransition><MapView /></PageTransition>
               } />
-              <Route path="/create" element={
+              <Route path="map/:roadmapId" element={
+                <PageTransition><MapView /></PageTransition>
+              } />
+              <Route path="create" element={
                 <PageTransition><CreateRoadmap /></PageTransition>
               } />
-              <Route path="/social" element={
+              <Route path="social" element={
                 <PageTransition><Social defaultTab={0} /></PageTransition>
               } />
-              <Route path="/profile" element={
+              <Route path="profile" element={
                 <PageTransition><Profile /></PageTransition>
               } />
-              <Route path="/leaderboard" element={
+              <Route path="leaderboard" element={
                 <PageTransition><Social defaultTab={1} /></PageTransition>
               } />
-              <Route path="/analytics" element={
+              <Route path="analytics" element={
                 <PageTransition><Analytics /></PageTransition>
               } />
-              <Route path="/settings" element={
+              <Route path="settings" element={
                 <PageTransition><Settings /></PageTransition>
               } />
             </Route>

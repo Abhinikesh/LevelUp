@@ -26,20 +26,63 @@ import {
   Brain,
   Camera
 } from 'lucide-react'
-import { roadmapApi, levelApi, aiApi } from '../api/client'
-import useAuthStore from '../store/authStore'
+import { aiApi } from '../api/client'
+import { getMe } from '../api/auth.api'
+import {
+  fetchRoadmaps as apiFetchRoadmaps,
+  createRoadmap as apiCreateRoadmap,
+  fetchLevels as apiFetchLevels,
+  completeLevel as apiCompleteLevel
+} from '../api/roadmaps.api'
+import useStore from '../store/useStore'
 import toast from 'react-hot-toast'
 import QuizVerification from '../components/ai/QuizVerification'
 import VoiceVerification from '../components/ai/VoiceVerification'
 import confetti from 'canvas-confetti'
 
+const roadmapApi = {
+  getAll: apiFetchRoadmaps,
+  create: apiCreateRoadmap,
+}
+const levelApi = {
+  getByRoadmap: apiFetchLevels,
+  complete: apiCompleteLevel,
+}
+
 export default function DashboardPage() {
-  const { user, setUser } = useAuthStore()
+  const user = useStore(state => state.user)
+  const setUser = useStore(state => state.updateUser)
   
-  // State
-  const [roadmaps, setRoadmaps] = useState([])
-  const [selectedRoadmap, setSelectedRoadmap] = useState(null)
-  const [levels, setLevels] = useState([])
+  const roadmaps = useStore(state => state.roadmaps)
+  const storeSetRoadmaps = useStore(state => state.setRoadmaps)
+  const setRoadmaps = (val) => {
+    if (typeof val === 'function') {
+      storeSetRoadmaps(val(useStore.getState().roadmaps))
+    } else {
+      storeSetRoadmaps(val)
+    }
+  }
+
+  const selectedRoadmap = useStore(state => state.activeRoadmap)
+  const storeSetSelectedRoadmap = useStore(state => state.setActiveRoadmap)
+  const setSelectedRoadmap = (val) => {
+    if (typeof val === 'function') {
+      storeSetSelectedRoadmap(val(useStore.getState().activeRoadmap))
+    } else {
+      storeSetSelectedRoadmap(val)
+    }
+  }
+
+  const levels = useStore(state => state.levels)
+  const storeSetLevels = useStore(state => state.setLevels)
+  const setLevels = (val) => {
+    if (typeof val === 'function') {
+      storeSetLevels(val(useStore.getState().levels))
+    } else {
+      storeSetLevels(val)
+    }
+  }
+
   const [loading, setLoading] = useState(true)
   const [levelsLoading, setLevelsLoading] = useState(false)
 
@@ -110,8 +153,36 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    fetchRoadmaps()
-  }, [])
+    const loadDashboard = async () => {
+      setLoading(true);
+      try {
+        // Load fresh user data
+        const userRes = await getMe();
+        setUser(userRes.data.user);
+        
+        // Load roadmaps
+        const roadmapsRes = await apiFetchRoadmaps();
+        const rms = roadmapsRes.data.roadmaps || [];
+        setRoadmaps(rms);
+        
+        // Set active roadmap (most recently updated)
+        const active = rms.find(r => !r.isCompleted) || rms[0];
+        if (active) {
+          setSelectedRoadmap(active);
+          
+          // Load levels for active roadmap
+          const levelsRes = await apiFetchLevels(active._id);
+          setLevels(levelsRes.data.levels || []);
+        }
+      } catch (err) {
+        console.error('Dashboard load error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadDashboard();
+  }, []);
 
   // Handle roadmap selection switch
   const handleSelectRoadmap = async (roadmap) => {

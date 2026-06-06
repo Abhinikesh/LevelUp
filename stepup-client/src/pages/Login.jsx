@@ -3,13 +3,13 @@ import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, Lock, Eye, EyeOff, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { authApi } from '../api/client'
-import useAuthStore from '../store/authStore'
+import { loginUser } from '../api/auth.api'
+import useStore from '../store/useStore'
 import MiniGameMap from '../components/map/MiniGameMap'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { setAuth } = useAuthStore()
+  const { setAuth } = useStore()
   const [form, setForm] = useState({ email: '', password: '' })
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -50,14 +50,16 @@ export default function Login() {
     if (!validate()) return
     setLoading(true)
     try {
-      const { data } = await authApi.login(form)
-      setAuth(data.user, data.token)
-      toast.success(data.message || 'Welcome back! 🔥')
-      navigate('/dashboard')
+      const response = await loginUser(form)
+      const { user, token } = response.data
+      
+      setAuth(user, token)
+      toast.success('Welcome back! 🔥')
+      navigate('/home/dashboard')
     } catch (err) {
       const msg = err.response?.data?.message || 'Login failed. Please try again.'
       toast.error(msg)
-      setErrors({ password: 'Invalid email or password' })
+      setErrors({ password: msg })
       triggerShake()
     } finally {
       setLoading(false)

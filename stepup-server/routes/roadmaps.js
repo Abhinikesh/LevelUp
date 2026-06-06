@@ -1,27 +1,14 @@
-const express = require('express');
-const router = express.Router();
-const {
-  getAllRoadmaps,
-  getRoadmapById,
-  createRoadmap,
-  updateRoadmap,
-  deleteRoadmap,
-  getExamStatus,
+const router = require('express').Router();
+const { 
+  createRoadmap, getRoadmaps, 
+  getRoadmap, deleteRoadmap 
 } = require('../controllers/roadmapController');
-const { protect } = require('../middleware/auth');
+const auth = require('../middleware/auth');
 
-// All roadmap routes are protected by auth
-router.use(protect);
-
-router.route('/')
-  .get(getAllRoadmaps)
-  .post(createRoadmap);
-
-router.route('/:id')
-  .get(getRoadmapById)
-  .patch(updateRoadmap)
-  .delete(deleteRoadmap);
-
-router.get('/:id/exam-status', getExamStatus);
+router.use(auth);
+router.get('/', getRoadmaps);
+router.post('/', createRoadmap);
+router.get('/:id', getRoadmap);
+router.delete('/:id', deleteRoadmap);
 
 module.exports = router;

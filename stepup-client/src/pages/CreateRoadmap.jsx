@@ -8,8 +8,14 @@ import {
   Camera, Upload, FileText, PenLine, RefreshCw, Rocket,
   Clock, Zap, Calendar
 } from 'lucide-react'
-import { roadmapApi } from '../api/client'
+import { createRoadmap as apiCreateRoadmap, deleteRoadmap as apiDeleteRoadmap } from '../api/roadmaps.api'
+import useStore from '../store/useStore'
 import toast from 'react-hot-toast'
+
+const roadmapApi = {
+  create: apiCreateRoadmap,
+  remove: apiDeleteRoadmap,
+}
 import AIRoadmapGenerator from '../components/ai/AIRoadmapGenerator'
 import OCRScanner from '../components/ai/OCRScanner'
 import RoadmapPreview from '../components/ai/RoadmapPreview'
@@ -187,11 +193,11 @@ export default function CreateRoadmap() {
         deadline: deadline || null,
         levels: levels.map(l => ({
           title:             l.title,
-          description:       l.description,
-          proofType:         l.proofType,
-          estimatedMinutes:  l.estimatedMinutes,
-          xpReward:          l.xpReward,
-          quizQuestions:     l.quizQuestions,
+          description:       l.description || '',
+          proofType:         l.proofType || 'quiz',
+          estimatedMinutes:  l.estimatedMinutes || 60,
+          xpReward:          l.xpReward || 100,
+          quizQuestions:     l.quizQuestions || [],
         })),
       }
 
@@ -206,9 +212,8 @@ export default function CreateRoadmap() {
       const { data } = await roadmapApi.create(payload)
       confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 }, colors: ['#6C63FF','#FF6584','#43E97B','#FFB800'] })
       toast.success('🚀 Roadmap launched! Let\'s go!')
-      // Store the new roadmap ID so MapView can auto-open it
-      sessionStorage.setItem('openRoadmapId', data.roadmap._id)
-      setTimeout(() => navigate('/map'), 1000)
+      useStore.getState().addRoadmap(data.roadmap)
+      setTimeout(() => navigate(`/home/map/${data.roadmap._id}`), 1000)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to create roadmap')
     } finally {
@@ -541,7 +546,7 @@ export default function CreateRoadmap() {
                 }}
                 levels={levels}
                 onConfirm={handleLaunch}
-                onClose={() => navigate('/dashboard')}
+                onClose={() => navigate('/home/dashboard')}
                 onEdit={() => setStep(2)}
               />
             )}

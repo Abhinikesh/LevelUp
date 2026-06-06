@@ -42,7 +42,7 @@ export default function RoadmapPreview({ roadmap, levels, onConfirm, onClose, on
     if (onConfirm) {
       await onConfirm()
     } else {
-      navigate(`/map/${roadmap._id}`)
+      navigate(`/home/map/${roadmap._id}`)
     }
   }
 

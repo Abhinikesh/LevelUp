@@ -49,7 +49,7 @@ export default function NotFound() {
             <Home size={15} /> Go Back Home
           </motion.button>
           <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-            onClick={() => navigate('/map')}
+            onClick={() => navigate('/home/map')}
             className="btn btn-ghost flex items-center gap-2 px-6 py-3 text-sm">
             <Map size={15} /> View Map
           </motion.button>

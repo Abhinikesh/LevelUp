@@ -15,20 +15,20 @@ import {
   Target,
   BarChart3,
 } from 'lucide-react'
-import useAuthStore from '../../store/authStore'
+import useStore from '../../store/useStore'
 
 const NAV_ITEMS = [
-  { icon: LayoutDashboard, label: 'Dashboard',  path: '/dashboard' },
-  { icon: Map,             label: 'Game Map',   path: '/map' },
-  { icon: Trophy,          label: 'Leaderboard',path: '/leaderboard' },
-  { icon: BarChart3,       label: 'Analytics',  path: '/analytics' },
-  { icon: Target,          label: 'Goals',      path: '/goals' },
-  { icon: Settings,        label: 'Settings',   path: '/settings' },
+  { icon: LayoutDashboard, label: 'Dashboard',  path: '/home/dashboard' },
+  { icon: Map,             label: 'Game Map',   path: '/home/map' },
+  { icon: Trophy,          label: 'Leaderboard',path: '/home/leaderboard' },
+  { icon: BarChart3,       label: 'Analytics',  path: '/home/analytics' },
+  { icon: Target,          label: 'Goals',      path: '/home/goals' },
+  { icon: Settings,        label: 'Settings',   path: '/home/settings' },
 ]
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
-  const { user, logout } = useAuthStore()
+  const { user, logout } = useStore()
   const navigate = useNavigate()
 
   const level      = user ? Math.floor((user.xpTotal || 0) / 500) + 1 : 1

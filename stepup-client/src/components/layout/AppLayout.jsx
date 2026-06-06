@@ -4,28 +4,28 @@ import {
   LayoutDashboard, Map, Plus, Users, User,
   Trophy, BarChart2, Settings, LogOut, Zap, Flame
 } from 'lucide-react'
-import useAuthStore from '../../store/authStore'
+import useStore from '../../store/useStore'
 
 const NAV_ITEMS = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/map',       icon: Map,             label: 'Map'       },
-  { to: '/create',    icon: Plus,            label: 'Create',   highlight: true },
-  { to: '/social',    icon: Users,           label: 'Social'    },
-  { to: '/profile',   icon: User,            label: 'Profile'   },
+  { to: '/home/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/home/map',       icon: Map,             label: 'Map'       },
+  { to: '/home/create',    icon: Plus,            label: 'Create',   highlight: true },
+  { to: '/home/social',    icon: Users,           label: 'Social'    },
+  { to: '/home/profile',   icon: User,            label: 'Profile'   },
 ]
 
 const SIDEBAR_ITEMS = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/map',       icon: Map,             label: 'Game Map'  },
-  { to: '/create',    icon: Plus,            label: 'New Roadmap', highlight: true },
-  { to: '/social',    icon: Users,           label: 'Social'    },
-  { to: '/profile',   icon: User,            label: 'Profile'   },
-  { to: '/analytics', icon: BarChart2,       label: 'Analytics' },
-  { to: '/settings',  icon: Settings,        label: 'Settings'  },
+  { to: '/home/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/home/map',       icon: Map,             label: 'Game Map'  },
+  { to: '/home/create',    icon: Plus,            label: 'New Roadmap', highlight: true },
+  { to: '/home/social',    icon: Users,           label: 'Social'    },
+  { to: '/home/profile',   icon: User,            label: 'Profile'   },
+  { to: '/home/analytics', icon: BarChart2,       label: 'Analytics' },
+  { to: '/home/settings',  icon: Settings,        label: 'Settings'  },
 ]
 
 export default function AppLayout() {
-  const { user, logout } = useAuthStore()
+  const { user, logout } = useStore()
   const navigate = useNavigate()
 
   const xp     = user?.xpTotal || 0
@@ -54,7 +54,7 @@ export default function AppLayout() {
         {/* Nav links */}
         <nav className="flex-1 px-3 py-4 space-y-1">
           {SIDEBAR_ITEMS.map(({ to, icon: Icon, label, highlight }) => (
-            <NavLink key={to} to={to} end={to === '/dashboard'}
+            <NavLink key={to} to={to} end={to === '/home/dashboard'}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 group ${
                   highlight
@@ -135,7 +135,7 @@ export default function AppLayout() {
                  borderTop: '1px solid #1E1E2E' }}>
         <div className="flex items-center justify-around py-2">
           {NAV_ITEMS.map(({ to, icon: Icon, label, highlight }) => (
-            <NavLink key={to} to={to} end={to === '/dashboard'}
+            <NavLink key={to} to={to} end={to === '/home/dashboard'}
               className="flex flex-col items-center gap-0.5 min-w-[44px] min-h-[44px] justify-center relative"
             >
               {({ isActive }) => (

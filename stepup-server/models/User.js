@@ -1,124 +1,47 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
-const badgeSchema = new mongoose.Schema({
-  badgeType: {
-    type: String,
-    required: true,
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true, trim: true },
+  email: { 
+    type: String, required: true, unique: true, 
+    lowercase: true, trim: true 
   },
-  badgeName: {
-    type: String,
-    required: true,
-  },
-  earnedAt: {
-    type: Date,
-    default: Date.now,
-  },
+  password: { type: String, required: true, minlength: 6 },
+  avatar: { type: String, default: '' },
+  xpTotal: { type: Number, default: 0 },
+  streakCount: { type: Number, default: 0 },
+  longestStreak: { type: Number, default: 0 },
+  lastActiveDate: { type: Date, default: null },
+  badges: [{
+    badgeType: String,
+    badgeName: String,
+    earnedAt: { type: Date, default: Date.now }
+  }],
+  friends: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    status: { 
+      type: String, 
+      enum: ['pending', 'accepted'], 
+      default: 'pending' 
+    }
+  }]
+}, { timestamps: true });
+
+userSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) return next();
+  this.password = await bcrypt.hash(this.password, 12);
+  next();
 });
 
-const friendSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'accepted'],
-    default: 'pending',
-  },
-});
+userSchema.methods.comparePassword = async function(password) {
+  return bcrypt.compare(password, this.password);
+};
 
-const userSchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      required: [true, 'Name is required'],
-      trim: true,
-      minlength: [2, 'Name must be at least 2 characters'],
-      maxlength: [50, 'Name cannot exceed 50 characters'],
-    },
-    email: {
-      type: String,
-      required: [true, 'Email is required'],
-      unique: true,
-      lowercase: true,
-      trim: true,
-      match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address'],
-    },
-    password: {
-      type: String,
-      required: [true, 'Password is required'],
-      minlength: [8, 'Password must be at least 8 characters'],
-      select: false, // Never return password in queries by default
-    },
-    avatar: {
-      type: String,
-      default: '',
-    },
-    xpTotal: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    streakCount: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    lastActiveDate: {
-      type: Date,
-      default: null,
-    },
-    longestStreak: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    badges: {
-      type: [badgeSchema],
-      default: [],
-    },
-    friends: {
-      type: [friendSchema],
-      default: [],
-    },
-    fcmToken: {
-      type: String,
-      default: '',
-    },
-    notificationPrefs: {
-      dailyStreakReminder: { type: Boolean, default: true },
-      weeklyProgressReport: { type: Boolean, default: true },
-      newFriendRequests: { type: Boolean, default: true },
-      examUrgencyAlerts: { type: Boolean, default: true },
-    },
-  },
-  {
-    timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
-  }
-);
+userSchema.methods.toJSON = function() {
+  const user = this.toObject();
+  delete user.password;
+  return user;
+};
 
-// Virtual: XP level derived from xpTotal
-userSchema.virtual('level').get(function () {
-  return Math.floor(this.xpTotal / 500) + 1;
-});
-
-// Virtual: XP progress within current level
-userSchema.virtual('xpInCurrentLevel').get(function () {
-  return this.xpTotal % 500;
-});
-
-// Virtual: XP needed to reach next level
-userSchema.virtual('xpToNextLevel').get(function () {
-  return 500 - (this.xpTotal % 500);
-});
-
-// Index for leaderboard queries
-userSchema.index({ xpTotal: -1 });
-userSchema.index({ streakCount: -1 });
-
-const User = mongoose.model('User', userSchema);
-
-module.exports = User;
+module.exports = mongoose.model('User', userSchema);

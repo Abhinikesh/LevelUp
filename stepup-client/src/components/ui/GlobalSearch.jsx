@@ -42,17 +42,17 @@ export default function GlobalSearch() {
 
   const handleSelectRoadmap = (rm) => {
     setActiveRoadmap(rm);
-    navigate('/map');
+    navigate('/home/map');
     setIsOpen(false);
   };
 
   // Filter shortcuts and roadmaps
   const shortcuts = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, category: 'Navigation' },
-    { name: 'Game Map', path: '/map', icon: Map, category: 'Navigation' },
-    { name: 'Leaderboard', path: '/leaderboard', icon: Trophy, category: 'Navigation' },
-    { name: 'Analytics', path: '/analytics', icon: BarChart3, category: 'Navigation' },
-    { name: 'Settings & Credentials', path: '/settings', icon: Settings, category: 'Navigation' },
+    { name: 'Dashboard', path: '/home/dashboard', icon: LayoutDashboard, category: 'Navigation' },
+    { name: 'Game Map', path: '/home/map', icon: Map, category: 'Navigation' },
+    { name: 'Leaderboard', path: '/home/leaderboard', icon: Trophy, category: 'Navigation' },
+    { name: 'Analytics', path: '/home/analytics', icon: BarChart3, category: 'Navigation' },
+    { name: 'Settings & Credentials', path: '/home/settings', icon: Settings, category: 'Navigation' },
   ];
 
   const filteredShortcuts = shortcuts.filter(s =>

@@ -4,13 +4,13 @@ import { motion } from 'framer-motion'
 import { Mail, Lock, User, Eye, EyeOff, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 import confetti from 'canvas-confetti'
-import { authApi } from '../api/client'
-import useAuthStore from '../store/authStore'
+import { registerUser } from '../api/auth.api'
+import useStore from '../store/useStore'
 import MiniGameMap from '../components/map/MiniGameMap'
 
 export default function Signup() {
   const navigate = useNavigate()
-  const { setAuth } = useAuthStore()
+  const { setAuth } = useStore()
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' })
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -88,11 +88,12 @@ export default function Signup() {
     if (!validate()) return
     setLoading(true)
     try {
-      const { data } = await authApi.register({
+      const response = await registerUser({
         name: form.name,
         email: form.email,
         password: form.password
       })
+      const { user, token } = response.data
 
       // Confetti burst on successful signup
       confetti({
@@ -104,8 +105,8 @@ export default function Signup() {
       toast.success('Account registered successfully! Welcome to the game! 🎮')
       
       setTimeout(() => {
-        setAuth(data.user, data.token)
-        navigate('/dashboard')
+        setAuth(user, token)
+        navigate('/home/dashboard')
       }, 1500)
 
     } catch (err) {
