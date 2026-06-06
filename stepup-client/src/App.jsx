@@ -16,6 +16,7 @@ const Landing        = lazy(() => import('./pages/Landing'))
 const Login          = lazy(() => import('./pages/Login'))
 const Signup         = lazy(() => import('./pages/Signup'))
 const DashboardPage  = lazy(() => import('./pages/DashboardPage'))
+const MapListPage    = lazy(() => import('./pages/MapListPage'))
 const MapView        = lazy(() => import('./pages/MapView'))
 const CreateRoadmap  = lazy(() => import('./pages/CreateRoadmap'))
 const Social         = lazy(() => import('./pages/Social'))
@@ -121,7 +122,7 @@ export default function App() {
                 <PageTransition><DashboardPage /></PageTransition>
               } />
               <Route path="map" element={
-                <PageTransition><MapView /></PageTransition>
+                <PageTransition><MapListPage /></PageTransition>
               } />
               <Route path="map/:roadmapId" element={
                 <PageTransition><MapView /></PageTransition>

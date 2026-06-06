@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import {
-  CheckCircle, Lock, Play, Star, Zap, Clock, Trophy,
+  CheckCircle, Lock, Star, Zap, Clock, Trophy,
   ChevronDown, X, Flame, Sparkles, ArrowLeft, BookOpen,
-  Dumbbell, Briefcase, Compass, Check, RefreshCw, Volume2, Brain, Camera
+  Dumbbell, Briefcase, Compass, Check, Volume2, Camera, Navigation
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import useRoadmaps from '../hooks/useRoadmaps'
@@ -97,6 +98,8 @@ function PathConnector({ from, to, completed }) {
 
 /* ── Main Component ── */
 export default function MapView() {
+  const { roadmapId }                                   = useParams()
+  const navigate                                        = useNavigate()
   const { user, setUser }                               = useAuthStore()
   const { roadmaps, activeRoadmap, levels, loading,
           levelsLoading, fetchRoadmaps, selectRoadmap } = useRoadmaps()
@@ -126,12 +129,13 @@ export default function MapView() {
     setProofFile(null)
   }, [levels, selectedLevel])
 
-  // Load on mount — auto-select a newly created roadmap if present
+  // Load on mount — use URL roadmapId if present
   useEffect(() => {
-    const newId = sessionStorage.getItem('openRoadmapId')
-    if (newId) sessionStorage.removeItem('openRoadmapId')
-    fetchRoadmaps(newId || null)
-  }, []) // eslint-disable-line
+    const sessionId = sessionStorage.getItem('openRoadmapId')
+    if (sessionId) sessionStorage.removeItem('openRoadmapId')
+    const targetId = roadmapId || sessionId || null
+    fetchRoadmaps(targetId)
+  }, [roadmapId]) // eslint-disable-line
 
   // Scroll to active node
   useEffect(() => {
@@ -373,18 +377,28 @@ export default function MapView() {
 
       {/* ── TOP BAR ── */}
       <div
-        className="flex-shrink-0 flex items-center justify-between gap-4 px-6 py-4 border-b"
-        style={{ borderColor: '#1E1E2E', background: 'rgba(13,13,24,0.95)' }}
+        className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b"
+        style={{ borderColor: '#1E1E2E', background: 'rgba(13,13,24,0.97)', backdropFilter: 'blur(12px)' }}
       >
-        <div className="flex items-center gap-3">
+        {/* Back + Title */}
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={() => navigate('/home/map')}
+            className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200"
+            style={{ background: 'rgba(30,30,46,0.8)', border: '1px solid #1E1E2E' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(108,99,255,0.4)'; e.currentTarget.style.background = 'rgba(108,99,255,0.1)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#1E1E2E'; e.currentTarget.style.background = 'rgba(30,30,46,0.8)' }}
+          >
+            <ArrowLeft size={14} style={{ color: '#8B8BAE' }} />
+          </button>
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center"
+            className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
             style={{ background: `linear-gradient(135deg, ${typeColors.from}, ${typeColors.to})` }}
           >
             {activeRoadmap && <TypeIcon type={activeRoadmap.type} size={16} />}
           </div>
-          <div>
-            <h1 className="text-sm font-black text-white font-display leading-tight">
+          <div className="min-w-0">
+            <h1 className="text-sm font-black text-white font-display leading-tight truncate" style={{ fontFamily: 'Syne, sans-serif' }}>
               {activeRoadmap?.title || 'Select a Campaign'}
             </h1>
             <p className="text-[10px] text-muted">
@@ -393,33 +407,15 @@ export default function MapView() {
           </div>
         </div>
 
-        {/* Roadmap switcher */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-          {roadmaps.map(rm => (
-            <button
-              key={rm._id}
-              onClick={() => selectRoadmap(rm)}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 border ${
-                activeRoadmap?._id === rm._id
-                  ? 'bg-brand/15 border-brand/40 text-white'
-                  : 'bg-transparent border-border text-muted hover:border-brand/30 hover:text-white'
-              }`}
-            >
-              <TypeIcon type={rm.type} size={11} />
-              <span className="hidden sm:inline truncate max-w-[80px]">{rm.title}</span>
-            </button>
-          ))}
-        </div>
-
         {/* Stats pills */}
-        <div className="hidden md:flex items-center gap-3">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand/10 border border-brand/20">
-            <Zap size={12} className="text-brand" />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)' }}>
+            <Zap size={11} style={{ color: '#6C63FF' }} />
             <span className="text-xs font-bold text-white">{user?.xpTotal || 0} XP</span>
           </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gold/10 border border-gold/20">
-            <Flame size={12} className="text-gold" />
-            <span className="text-xs font-bold text-gold">{user?.streakCount || 0}d</span>
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ background: 'rgba(255,184,0,0.1)', border: '1px solid rgba(255,184,0,0.2)' }}>
+            <Flame size={11} style={{ color: '#FFB800' }} />
+            <span className="text-xs font-bold" style={{ color: '#FFB800' }}>{user?.streakCount || 0}d</span>
           </div>
         </div>
       </div>
