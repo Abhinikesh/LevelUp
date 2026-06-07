@@ -23,6 +23,8 @@ const Social         = lazy(() => import('./pages/Social'))
 const Profile        = lazy(() => import('./pages/Profile'))
 const Analytics      = lazy(() => import('./pages/Analytics'))
 const Settings       = lazy(() => import('./pages/Settings'))
+const LevelDetailPage = lazy(() => import('./pages/LevelDetailPage'))
+const VerificationPage = lazy(() => import('./pages/VerificationPage'))
 const NotFound       = lazy(() => import('./pages/NotFound'))
 
 /* ── Page loading fallback ── */
@@ -144,6 +146,20 @@ export default function App() {
               } />
               <Route path="settings" element={
                 <PageTransition><Settings /></PageTransition>
+              } />
+            </Route>
+
+            {/* ── Protected shell for absolute sub-routes ── */}
+            <Route element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }>
+              <Route path="/level/:levelId" element={
+                <PageTransition><LevelDetailPage /></PageTransition>
+              } />
+              <Route path="/verification/:levelId/:type" element={
+                <PageTransition><VerificationPage /></PageTransition>
               } />
             </Route>
 

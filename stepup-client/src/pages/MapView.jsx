@@ -555,7 +555,7 @@ export default function MapView() {
                     <motion.button
                       id={`level-node-${lvl.levelNumber}`}
                       disabled={isLocked}
-                      onClick={() => !isLocked && setSelectedLevel(lvl)}
+                      onClick={() => !isLocked && navigate(`/level/${lvl._id}`)}
                       whileHover={!isLocked ? { scale: 1.15 } : {}}
                       whileTap={!isLocked ? { scale: 0.92 } : {}}
                       animate={

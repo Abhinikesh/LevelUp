@@ -11,13 +11,12 @@ const app = express();
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000').split(',');
 
 app.use(cors({
-  origin: (origin, cb) => {
-    // Allow requests with no origin (mobile/curl) or matching allowed list
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-    cb(new Error(`CORS blocked for origin: ${origin}`));
-  },
-  credentials: true
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(morgan('dev'));
@@ -51,7 +50,7 @@ app.use((req, res) => {
 app.use(require('./middleware/errorHandler'));
 
 // ── Connect MongoDB and start server ─────────────────────────────────────────
-const PORT = parseInt(process.env.PORT || '5001', 10);
+const PORT = parseInt(process.env.PORT || '8000', 10);
 
 mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/stepup')
   .then(() => {
