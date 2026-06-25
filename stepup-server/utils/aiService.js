@@ -1,19 +1,34 @@
 const OpenAI = require('openai');
 
-// Initialize OpenAI client safely
-const openaiApiKey = process.env.OPENAI_API_KEY;
-const hasApiKey = openaiApiKey && openaiApiKey !== 'your_key_here';
+// ── Grok AI Client (OpenAI-compatible) ──────────────────────────
+const grokApiKey = process.env.GROK_API_KEY;
+const hasGrokKey = grokApiKey && grokApiKey !== 'your_key_here' && grokApiKey.length > 10;
 
-let openai = null;
-if (hasApiKey) {
-  openai = new OpenAI({ apiKey: openaiApiKey });
+let grokClient = null;
+if (hasGrokKey) {
+  grokClient = new OpenAI({
+    apiKey: grokApiKey,
+    baseURL: 'https://api.x.ai/v1',
+  });
+  console.log('[AI Service] ✅ Grok AI client initialized');
+}
+
+const openai = grokClient;
+
+/**
+ * Helper to extract JSON from AI response (handles markdown code blocks)
+ */
+function extractJson(text) {
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('No JSON object found in response');
+  return JSON.parse(jsonMatch[0]);
 }
 
 /**
- * Helper to check if OpenAI is available and active
+ * Helper to check if Grok AI is available
  */
 function isAiActive() {
-  return hasApiKey && openai !== null;
+  return hasGrokKey && grokClient !== null;
 }
 
 /**
@@ -214,74 +229,62 @@ function generateMockRoadmap(userInput, deadline, type = 'study') {
 /**
  * FUNCTION 1 — generateRoadmapFromText(userInput, deadline)
  */
-async function generateRoadmapFromText(userInput, deadline) {
+async function generateRoadmapFromText(userInput, deadline, type = 'study') {
   if (!isAiActive()) {
-    return generateMockRoadmap(userInput, deadline);
+    return generateMockRoadmap(userInput, deadline, type);
   }
 
-  const promptSystem = `You are an expert learning roadmap builder.
-The user gives you a goal. You must return a JSON object with this exact structure and nothing else:
+  const promptSystem = `You are an expert learning roadmap builder for a gamified study app.
+The user describes their goal with details about duration, daily time, experience level, and learning style.
+Return ONLY a JSON object with this exact structure:
 {
-  "title": "string (short roadmap name)",
+  "title": "string (concise roadmap name, e.g. Python for Data Science)",
   "type": "string (study/gym/work/custom)",
-  "totalLevels": 5,
-  "estimatedTotalHours": 4,
+  "totalLevels": 8,
+  "estimatedTotalHours": 24,
   "levels": [
     {
       "levelNumber": 1,
-      "title": "string (clear specific task name, e.g. Arrays and Two Pointer Problems)",
-      "description": "string (clear instructions of what the user needs to complete)",
-      "proofType": "string (must be quiz, photo, code, voice, timer, or screenshot)",
+      "title": "string (specific actionable milestone title)",
+      "description": "string (2-3 sentences: what to do, how to verify completion)",
+      "proofType": "string (quiz|code|timer|photo|screenshot|voice)",
       "estimatedMinutes": 45,
       "xpReward": 150,
-      "topics": ["string (subtopics to cover)"]
+      "topics": ["subtopic1", "subtopic2"]
     }
   ]
 }
 Rules:
-- Level titles must be specific, not generic. E.g. "Linear Regression Fitting" is good, "Level 2" is bad.
-- proofType must match the task type logically:
-  - For coding topics use "code"
-  - For theory/knowledge checks use "quiz"
-  - For physical tasks/gym use "timer" or "photo"
-  - For UI output validation use "screenshot"
-  - For explanations use "voice" or "text"
-- XP reward between 50 and 300 based on difficulty
-- Return ONLY valid JSON, no markdown codeblocks, no extra explanations.`;
+- Generate 6-12 levels based on the duration specified by the user
+- Level titles must be specific and actionable (e.g. "Binary Search & Divide Conquer" not "Level 3")
+- proofType logic: code→coding tasks, quiz→theory, timer→physical/timed, photo→gym/physical proof, screenshot→UI output
+- XP: 80-120 for easy, 150-200 for medium, 250-300 for hard/final
+- Tailor difficulty and pace to the user's stated experience level and time budget
+- Return ONLY raw JSON, no markdown, no code blocks, no explanation text`;
 
-  const userContent = `Goal: "${userInput}"${deadline ? `\nDeadline: ${deadline}` : ''}`;
+  const userContent = `${userInput}${deadline ? `\nTarget deadline: ${deadline}` : ''}`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+    const response = await grokClient.chat.completions.create({
+      model: 'grok-beta',
       messages: [
         { role: 'system', content: promptSystem },
         { role: 'user', content: userContent }
       ],
-      temperature: 0.2,
-      response_format: { type: 'json_object' }
+      temperature: 0.4,
+      max_tokens: 4000,
     });
 
-    const parsed = JSON.parse(response.choices[0].message.content.trim());
+    const content = response.choices[0].message.content.trim();
+    const parsed = extractJson(content);
+    if (!parsed.levels || !Array.isArray(parsed.levels) || parsed.levels.length === 0) {
+      throw new Error('Invalid roadmap structure from Grok');
+    }
+    console.log(`[AI Service] ✅ Grok generated roadmap: "${parsed.title}" with ${parsed.levels.length} levels`);
     return parsed;
   } catch (err) {
-    console.warn('[AI Service] GPT-4o roadmap generation failed, retrying once with stricter prompt:', err.message);
-    try {
-      // Stricter fallback retry
-      const responseRetry = await openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: promptSystem + '\nCRITICAL: Return ONLY JSON. Do not return any text before or after.' },
-          { role: 'user', content: userContent }
-        ],
-        temperature: 0.1,
-      });
-      const parsed = JSON.parse(responseRetry.choices[0].message.content.trim());
-      return parsed;
-    } catch (errRetry) {
-      console.error('[AI Service] Stricter retry failed, falling back to mock generation.', errRetry.message);
-      return generateMockRoadmap(userInput, deadline);
-    }
+    console.warn('[AI Service] Grok roadmap generation failed, using local template:', err.message);
+    return generateMockRoadmap(userInput, deadline, type);
   }
 }
 
@@ -327,7 +330,7 @@ async function generateRoadmapFromImage(imageBase64, mimeType) {
   if (!extractedText && isAiActive()) {
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'grok-beta',
         messages: [
           {
             role: 'system',
@@ -455,21 +458,25 @@ Rules:
   const userContent = `Topic: "${levelTitle}"\nDescription: "${levelDescription}"\nSubtopics: ${topics.join(', ') || 'N/A'}`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+    const response = await grokClient.chat.completions.create({
+      model: 'grok-beta',
       messages: [
         { role: 'system', content: promptSystem },
         { role: 'user', content: userContent }
       ],
       temperature: 0.3,
-      response_format: { type: 'json_object' }
+      max_tokens: 2000,
     });
 
-    const parsed = JSON.parse(response.choices[0].message.content.trim());
+    const content = response.choices[0].message.content.trim();
+    const parsed = extractJson(content);
     return parsed.questions || [];
   } catch (err) {
-    console.error('[AI Service] Quiz generation failed, returning mock questions.', err.message);
-    return generateQuizForLevel(levelTitle, levelDescription, topics); // recursive mock fallback
+    console.error('[AI Service] Grok quiz generation failed, returning mock questions.', err.message);
+    // Return static mock questions as fallback
+    return generateQuizForLevel._mockFallback
+      ? []
+      : (() => { generateQuizForLevel._mockFallback = true; return generateQuizForLevel(levelTitle, levelDescription, topics); })();
   }
 }
 
@@ -503,7 +510,7 @@ Reject blank images, entirely dark images, generic unrelated images, or obvious 
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'grok-beta',
       messages: [
         { role: 'system', content: promptSystem },
         {
@@ -582,7 +589,7 @@ Pass (set verified = true) if score >= 60. The student does not need to be perfe
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'grok-beta',
       messages: [
         { role: 'system', content: promptSystem },
         { role: 'user', content: userContent }

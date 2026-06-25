@@ -8,15 +8,25 @@ require('dotenv').config();
 const app = express();
 
 // ── Middleware ────────────────────────────────────────────────────────────────
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000').split(',');
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map(o => o.trim()).filter(Boolean);
+const isDev = (process.env.NODE_ENV || 'development') === 'development';
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('CORS blocked: ' + origin));
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+
+    // In development: allow ANY localhost or 127.0.0.1 origin regardless of port
+    if (isDev && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      return callback(null, true);
     }
+
+    // In production (or for non-localhost origins): check explicit allowlist
+    if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    callback(new Error('CORS blocked: ' + origin));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -58,9 +68,12 @@ app.use(require('./middleware/errorHandler'));
 // ── Connect MongoDB and start server ─────────────────────────────────────────
 const PORT = parseInt(process.env.PORT || '8000', 10);
 
+const { initCronJobs } = require('./utils/notificationService');
+
 mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/stepup')
   .then(() => {
     console.log('✅ MongoDB Connected Successfully');
+    initCronJobs();
     app.listen(PORT, () => {
       console.log(`🚀 STEPUP Server running on http://localhost:${PORT}`);
       console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);

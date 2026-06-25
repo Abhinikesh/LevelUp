@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Roadmap = require('../models/Roadmap');
 const LevelCompletion = require('../models/LevelCompletion');
 const mongoose = require('mongoose');
+const { createNotification } = require('../routes/notifications');
 
 /**
  * POST /api/social/friends/add
@@ -42,6 +43,15 @@ const sendFriendRequest = async (req, res) => {
     target.friends.push({ userId: req.user._id, status: 'pending' });
     await target.save();
 
+    // Notify the target user
+    createNotification({
+      userId: target._id,
+      title: 'New Friend Request',
+      body: `${me.name || 'Someone'} sent you a friend request on STEPUP!`,
+      type: 'friend_request',
+      refId: req.user._id.toString(),
+    });
+
     return res.status(200).json({ success: true, message: 'Friend request sent!' });
   } catch (err) {
     console.error('[sendFriendRequest]', err.message);
@@ -70,6 +80,15 @@ const acceptFriendRequest = async (req, res) => {
     senderEntry.status = 'accepted';
     await me.save();
     await sender.save();
+
+    // Notify the original sender that their request was accepted
+    createNotification({
+      userId: sender._id,
+      title: 'Friend Request Accepted! 🤝',
+      body: `${me.name || 'Someone'} accepted your friend request. You're now friends!`,
+      type: 'friend_accepted',
+      refId: req.user._id.toString(),
+    });
 
     return res.status(200).json({ success: true, message: 'Friend request accepted!' });
   } catch (err) {

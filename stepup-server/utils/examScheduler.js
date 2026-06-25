@@ -41,7 +41,28 @@ function tomorrowStart() {
  */
 function calculateExamSchedule(roadmap, levels, completionsToday = []) {
   const now = new Date();
-  const examDate = new Date(roadmap.examDate);
+  const examDate = roadmap.examDate ? new Date(roadmap.examDate) : null;
+
+  // Guard: if no valid exam date, return a safe default
+  if (!examDate || isNaN(examDate.getTime())) {
+    return {
+      examDate: null,
+      totalDays: null,
+      totalLevels: levels.length,
+      completedLevels: levels.filter(l => l.isCompleted).length,
+      remainingLevels: levels.filter(l => !l.isCompleted).length,
+      dailyTarget: 1,
+      levelsCompletedToday: completionsToday.length,
+      levelsNeededToday: 1,
+      onTrack: true,
+      urgencyLevel: 'comfortable',
+      dailyHours: 1,
+      intensity: 'Easy',
+      daysUsed: 0,
+      isExamOver: false,
+      isExamToday: false,
+    };
+  }
 
   // Days remaining from today to exam day
   const totalDays = daysBetween(now, examDate);

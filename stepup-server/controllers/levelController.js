@@ -3,6 +3,7 @@ const Roadmap = require('../models/Roadmap');
 const LevelCompletion = require('../models/LevelCompletion');
 const User = require('../models/User');
 const { checkAndAwardBadges } = require('./userController');
+const { createNotification } = require('../routes/notifications');
 
 /**
  * GET /api/levels/roadmap/:roadmapId or GET /api/levels?roadmapId=...
@@ -13,10 +14,7 @@ exports.getLevels = async (req, res) => {
     if (!roadmapId) {
       return res.status(400).json({ success: false, message: 'roadmapId is required' });
     }
-    const levels = await Level.find({
-      roadmapId
-    }).sort({ levelNumber: 1 });
-
+    const levels = await Level.find({ roadmapId }).sort({ levelNumber: 1 });
     res.json({ success: true, levels });
   } catch (error) {
     console.error('[getLevels]', error.message);
@@ -53,10 +51,7 @@ exports.completeLevel = async (req, res) => {
     }
 
     // Check if already completed by this user
-    const alreadyDone = await LevelCompletion.findOne({
-      levelId: level._id,
-      userId: req.user._id
-    });
+    const alreadyDone = await LevelCompletion.findOne({ levelId: level._id, userId: req.user._id });
     if (alreadyDone) {
       return res.status(400).json({ success: false, message: 'Level already completed' });
     }
@@ -87,7 +82,6 @@ exports.completeLevel = async (req, res) => {
         roadmap.completedAt = new Date();
         roadmapCompleted = true;
       }
-
       await roadmap.save();
     }
 
@@ -96,7 +90,7 @@ exports.completeLevel = async (req, res) => {
     user.xpTotal += level.xpReward;
 
     // Update streak
-    const today     = new Date().toDateString();
+    const today      = new Date().toDateString();
     const lastActive = user.lastActiveDate
       ? new Date(user.lastActiveDate).toDateString()
       : null;
@@ -108,9 +102,7 @@ exports.completeLevel = async (req, res) => {
 
       if (wasYesterday) {
         user.streakCount += 1;
-        if (user.streakCount > user.longestStreak) {
-          user.longestStreak = user.streakCount;
-        }
+        if (user.streakCount > user.longestStreak) user.longestStreak = user.streakCount;
       } else {
         user.streakCount = 1;
       }
@@ -135,6 +127,26 @@ exports.completeLevel = async (req, res) => {
       timeSpentMinutes: timeSpentMinutes || 0,
     });
 
+    // ── Fire notifications (non-blocking) ─────────────────────────
+    // 1. Level complete notification
+    createNotification({
+      userId: req.user._id,
+      title: 'Level Complete! 🎉',
+      body: `You completed "${level.title}" and earned ${level.xpReward} XP!`,
+      type: 'level_complete',
+      refId: level.roadmapId?.toString(),
+    });
+
+    // 2. Badge earned notifications (one per new badge)
+    for (const badge of newBadges) {
+      createNotification({
+        userId: req.user._id,
+        title: `New Badge Unlocked! 🏆`,
+        body: `You earned the "${badge.name}" badge. Check your profile!`,
+        type: 'badge_earned',
+      });
+    }
+
     res.json({
       success: true,
       message: `Level "${level.title}" completed! +${level.xpReward} XP 🎉`,
@@ -145,7 +157,7 @@ exports.completeLevel = async (req, res) => {
       roadmapCompleted,
       user: {
         xpTotal:     user.xpTotal,
-        streakCount: user.streakCount
+        streakCount: user.streakCount,
       },
       newBadges,
     });

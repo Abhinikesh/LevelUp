@@ -13,15 +13,28 @@ const notificationSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    message: {
+    body: {
       type: String,
       required: true,
       trim: true,
     },
     type: {
       type: String,
-      enum: ['streak', 'progress', 'alert', 'friend', 'general'],
+      enum: [
+        'level_complete',
+        'badge_earned',
+        'roadmap_created',
+        'friend_request',
+        'friend_accepted',
+        'streak_reminder',
+        'general',
+      ],
       default: 'general',
+    },
+    // Optional reference ID for deep-link navigation
+    refId: {
+      type: String,
+      default: null,
     },
     isRead: {
       type: Boolean,
@@ -33,7 +46,7 @@ const notificationSchema = new mongoose.Schema(
   }
 );
 
-// Index for getting unread notifications quickly
+// Compound index for fast user notification queries
 notificationSchema.index({ userId: 1, isRead: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);
